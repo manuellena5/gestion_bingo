@@ -339,9 +339,9 @@ function getCuotasPendientes(bingo) {
 }
 
 function getBingoStatus(bingo) {
-  const pagadas = getCuotasPagadas(bingo).length;
-  if (pagadas === 0) return 'pendiente';
-  if (pagadas >= TOTAL_CUOTAS) return 'completo';
+  const cobrado = getBingoMontoCobrado(bingo);
+  if (cobrado === 0) return 'pendiente';
+  if (cobrado >= TOTAL_BINGO) return 'completo';
   return 'parcial';
 }
 
@@ -741,11 +741,12 @@ async function submitCobro() {
   const fecha = new Date().toLocaleDateString('es-AR');
 
   // Add cuotas locally
+  const montoPorCuota = cobroSelectedCuotas.length > 0 ? monto / cobroSelectedCuotas.length : 0;
   if (!bingo.cuotas) bingo.cuotas = [];
   cobroSelectedCuotas.forEach(n => {
     // Remove if exists (shouldn't but safety)
     bingo.cuotas = bingo.cuotas.filter(c => c.nro !== n);
-    bingo.cuotas.push({ nro: n, monto: CUOTA_VALOR, metodo, fecha });
+    bingo.cuotas.push({ nro: n, monto: montoPorCuota, metodo, fecha });
   });
 
   // Post to sheets
@@ -755,7 +756,7 @@ async function submitCobro() {
     nroBingo: bingo.nroBingo,
     comprador: bingo.comprador,
     cuotas: cobroSelectedCuotas,
-    montoPorCuota: CUOTA_VALOR,
+    montoPorCuota: montoPorCuota,
     montoTotal: monto,
     metodo,
     fecha
@@ -812,7 +813,7 @@ function updateKPIs() {
 
   const totalCuotas = totalBingos * TOTAL_CUOTAS;
   const cuotasPend = totalCuotas - cuotasCobradas;
-  const montoPend = cuotasPend * CUOTA_VALOR;
+  const montoPend = (totalBingos * TOTAL_BINGO) - montoCobrado;
 
   document.getElementById('kBingos').textContent = totalBingos;
   document.getElementById('kCuotasCobradas').textContent = cuotasCobradas;
