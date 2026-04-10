@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Bingo Club - Gestión de Cobros</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #1a1a2e; padding-bottom: 80px; -webkit-tap-highlight-color: transparent; }
+
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 16px 20px; text-align: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    .header h1 { font-size: 1.3rem; font-weight: 700; }
+    .header .subtitle { font-size: 0.75rem; opacity: 0.7; margin-top: 2px; }
+
+    /* MAIN TABS */
+    .main-tabs { display: flex; background: #1a1a2e; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .main-tabs::-webkit-scrollbar { display: none; }
+    .main-tab { padding: 10px 14px; text-align: center; cursor: pointer; font-weight: 600; font-size: 0.8rem; color: rgba(255,255,255,0.5); transition: all 0.2s; border-bottom: 3px solid transparent; white-space: nowrap; flex-shrink: 0; }
+    .main-tab:hover { color: rgba(255,255,255,0.8); }
+    .main-tab.active { color: white; border-bottom-color: #f39c12; }
+    .main-tab .badge { display: inline-block; background: rgba(255,255,255,0.2); color: white; font-size: 0.6rem; padding: 1px 5px; border-radius: 8px; margin-left: 3px; }
+
+    /* KPI */
+    .kpi-section { background: white; border-bottom: 1px solid #e0e0e0; padding: 12px; }
+    .kpi-title { font-size: 0.7rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; text-align: center; }
+    .kpi-filter { display: flex; justify-content: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+    .kpi-filter-btn { padding: 4px 10px; border: 1px solid #ddd; border-radius: 16px; font-size: 0.7rem; cursor: pointer; background: white; color: #666; transition: all 0.2s; }
+    .kpi-filter-btn.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+    .kpi-row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    .kpi-item { text-align: center; min-width: 70px; background: #f8f9fa; border-radius: 10px; padding: 8px 6px; }
+    .kpi-item .num { font-size: 1.1rem; font-weight: 700; }
+    .kpi-item .label { font-size: 0.6rem; color: #666; margin-top: 2px; }
+    .kpi-item.green .num { color: #27ae60; }
+    .kpi-item.orange .num { color: #e67e22; }
+    .kpi-item.blue .num { color: #2980b9; }
+    .kpi-item.red .num { color: #e74c3c; }
+    .kpi-item.purple .num { color: #8e44ad; }
+
+    /* SECTIONS */
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* FORMS */
+    .form-container { padding: 16px; max-width: 500px; margin: 0 auto; }
+    .form-container h2 { font-size: 1.05rem; margin-bottom: 14px; color: #1a1a2e; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 0.75rem; color: #666; margin-bottom: 3px; font-weight: 600; }
+    .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.95rem; outline: none; background: white; }
+    .form-group input:focus, .form-group select:focus { border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.1); }
+    .form-row { display: flex; gap: 10px; }
+    .form-row .form-group { flex: 1; }
+
+    /* BUTTONS */
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: #27ae60; color: white; }
+    .btn-primary:hover { background: #219a52; }
+    .btn-blue { background: #3498db; color: white; }
+    .btn-blue:hover { background: #2980b9; }
+    .btn-danger { background: #e74c3c; color: white; }
+    .btn-danger:hover { background: #c0392b; }
+    .btn-warning { background: #f39c12; color: white; }
+    .btn-full { width: 100%; justify-content: center; padding: 12px; font-size: 0.95rem; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+    /* CARDS */
+    .list { padding: 8px; }
+    .card { background: white; border-radius: 12px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow: hidden; }
+    .card-header { display: flex; align-items: center; padding: 12px 14px; gap: 10px; cursor: pointer; }
+    .card-header .icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0; }
+    .card-header .icon.bingo { background: #eaf6ec; color: #27ae60; }
+    .card-header .icon.vendedor { background: #e8f4fd; color: #3498db; }
+    .card-header .info { flex: 1; }
+    .card-header .info .name { font-weight: 600; font-size: 0.9rem; }
+    .card-header .info .detail { font-size: 0.75rem; color: #888; margin-top: 1px; }
+    .card-header .status-badge { padding: 3px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 700; }
+    .badge-completo { background: #d5f5e3; color: #27ae60; }
+    .badge-parcial { background: #fef3e2; color: #e67e22; }
+    .badge-pendiente { background: #fde8e8; color: #e74c3c; }
+    .card-header .arrow { color: #aaa; transition: transform 0.2s; font-size: 0.75rem; }
+    .card.expanded .card-header .arrow { transform: rotate(180deg); }
+    .card-body { display: none; padding: 12px 14px; border-top: 1px solid #f0f0f0; }
+    .card.expanded .card-body { display: block; }
+
+    /* CUOTAS GRID */
+    .cuotas-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-bottom: 10px; }
+    .cuota-cell { text-align: center; padding: 6px 2px; border-radius: 8px; border: 1px solid #eee; cursor: pointer; transition: all 0.2s; }
+    .cuota-cell .cuota-num { font-size: 0.65rem; color: #888; font-weight: 600; }
+    .cuota-cell .cuota-status { font-size: 0.85rem; font-weight: 700; }
+    .cuota-cell.pagada { background: #d5f5e3; border-color: #a3d9b1; }
+    .cuota-cell.pagada .cuota-status { color: #27ae60; }
+    .cuota-cell.pendiente { background: #fff; }
+    .cuota-cell.pendiente .cuota-status { color: #ccc; }
+    .cuota-cell.selected { border-color: #3498db; box-shadow: 0 0 0 2px rgba(52,152,219,0.3); }
+
+    /* COBRO FORM inside card */
+    .cobro-form { background: #f8f9fa; border-radius: 8px; padding: 12px; margin-top: 8px; }
+    .cobro-form h4 { font-size: 0.8rem; margin-bottom: 8px; color: #333; }
+
+    /* VENDEDORES LIST */
+    .vendedor-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: white; border-radius: 10px; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    .vendedor-item .v-name { flex: 1; font-weight: 600; font-size: 0.9rem; }
+    .vendedor-item .v-count { font-size: 0.75rem; color: #888; }
+
+    /* SEARCH */
+    .search-bar { padding: 8px 12px; background: white; border-bottom: 1px solid #eee; }
+    .search-bar input { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.85rem; outline: none; }
+    .search-bar input:focus { border-color: #3498db; }
+
+    /* LOADING & TOAST & CONFIG */
+    .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .loading-overlay .spinner { background: white; padding: 24px 32px; border-radius: 12px; text-align: center; font-weight: 600; }
+    .loading-overlay .dots::after { content: ''; animation: dots 1.5s infinite; }
+    @keyframes dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } }
+
+    .toast { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 8px; font-size: 0.8rem; z-index: 1001; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 90%; text-align: center; }
+    .toast.show { opacity: 1; }
+
+    .config-panel { padding: 16px; background: #fff3cd; border-bottom: 1px solid #ffc107; text-align: center; }
+    .config-panel input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; width: 85%; max-width: 450px; font-size: 0.85rem; }
+    .config-panel p { font-size: 0.8rem; margin-bottom: 8px; }
+    .config-panel.connected { background: #d5f5e3; border-bottom-color: #27ae60; }
+    .config-panel .status-line { font-size: 0.7rem; margin-top: 6px; }
+    .config-panel .status-line.ok { color: #27ae60; }
+    .config-panel .status-line.err { color: #e74c3c; }
+
+    .success-msg { background: #d5f5e3; color: #27ae60; padding: 10px 14px; border-radius: 8px; text-align: center; font-weight: 600; margin-top: 10px; display: none; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: #999; }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .empty-state p { font-size: 0.85rem; }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1100; padding: 20px; }
+    .modal { background: white; border-radius: 16px; padding: 20px; max-width: 360px; width: 100%; box-shadow: 0 8px 30px rgba(0,0,0,0.2); }
+    .modal h3 { font-size: 1rem; margin-bottom: 12px; }
+    .modal-buttons { display: flex; gap: 8px; margin-top: 14px; }
+    .modal-buttons .btn { flex: 1; justify-content: center; }
+
+    /* FABs */
+    .fab-row { position: fixed; bottom: 16px; right: 16px; display: flex; gap: 10px; z-index: 50; }
+    .fab { width: 48px; height: 48px; border-radius: 50%; border: none; font-size: 1.2rem; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center; }
+    .fab-refresh { background: #1a1a2e; color: white; }
+    .fab-config { background: #7f8c8d; color: white; }
+    .fab-add { background: #27ae60; color: white; font-size: 1.5rem; }
+
+    @media (max-width: 400px) {
+      .kpi-item { min-width: 60px; padding: 6px 4px; }
+      .kpi-item .num { font-size: 0.95rem; }
+      .cuotas-grid { grid-template-columns: repeat(5, 1fr); gap: 3px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Bingo del Club</h1>
+  <div class="subtitle">Registro de cobros</div>
+</div>
+
+<div class="main-tabs" id="mainTabs">
+  <div class="main-tab active" onclick="switchSection('dashboard')">Dashboard</div>
+  <div class="main-tab" onclick="switchSection('vendedores')">Vendedores</div>
+  <!-- Dynamic vendor tabs will be added here -->
+</div>
+
+<!-- CONFIG -->
+<div id="configPanel" class="config-panel" style="display:none;">
+  <p><strong>Configuracion:</strong> Pega la URL de tu Google Apps Script Web App</p>
+  <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/...../exec">
+  <br>
+  <button class="btn btn-primary btn-sm" onclick="saveConfig()" style="margin-top:8px;">Guardar y Conectar</button>
+  <div id="configStatus"></div>
+</div>
+
+<!-- ========== DASHBOARD ========== -->
+<div class="section active" id="sectionDashboard">
+  <div class="kpi-section">
+    <div class="kpi-filter" id="kpiFilter">
+      <span class="kpi-filter-btn active" onclick="setKpiFilter('todos')">Todos</span>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-item blue"><div class="num" id="kBingos">0</div><div class="label">Bingos vendidos</div></div>
+      <div class="kpi-item green"><div class="num" id="kCuotasCobradas">0</div><div class="label">Cuotas cobradas</div></div>
+      <div class="kpi-item orange"><div class="num" id="kCuotasPend">0</div><div class="label">Cuotas pendientes</div></div>
+    </div>
+    <div class="kpi-row" style="margin-top:8px;">
+      <div class="kpi-item green"><div class="num" id="kMontoCobrado">$0</div><div class="label">Cobrado</div></div>
+      <div class="kpi-item red"><div class="num" id="kMontoPend">$0</div><div class="label">Pendiente</div></div>
+      <div class="kpi-item purple"><div class="num" id="kEfectivo">$0</div><div class="label">Efectivo</div></div>
+      <div class="kpi-item blue"><div class="num" id="kTransf">$0</div><div class="label">Transferencia</div></div>
+    </div>
+  </div>
+
+  <!-- Recent payments list -->
+  <div style="padding: 8px 12px;">
+    <h3 style="font-size:0.85rem; color:#666; margin-bottom:6px;">Ultimos cobros</h3>
+    <div id="recentPayments"></div>
+  </div>
+</div>
+
+<!-- ========== VENDEDORES ========== -->
+<div class="section" id="sectionVendedores">
+  <div class="form-container">
+    <h2>Agregar Vendedor</h2>
+    <div class="form-row">
+      <div class="form-group" style="flex:3;">
+        <input type="text" id="nuevoVendedor" placeholder="Nombre del vendedor">
+      </div>
+      <div style="flex:1; display:flex; align-items:end;">
+        <button class="btn btn-primary btn-full" onclick="addVendedor()">+</button>
+      </div>
+    </div>
+    <div class="success-msg" id="vendedorSuccess">Vendedor agregado</div>
+  </div>
+  <div class="list" id="vendedoresList"></div>
+</div>
+
+<!-- ========== VENDOR SECTION (template, cloned per vendor) ========== -->
+<div class="section" id="sectionVendor">
+  <div class="search-bar">
+    <input type="text" id="vendorSearch" placeholder="Buscar bingo por nombre o numero..." oninput="renderVendorBingos()">
+  </div>
+  <div class="list" id="vendorBingosList"></div>
+</div>
+
+<!-- MODAL: Nuevo Bingo -->
+<div class="modal-overlay" id="modalNuevoBingo" style="display:none;" onclick="if(event.target===this)closeModalBingo()">
+  <div class="modal">
+    <h3>Nuevo Bingo</h3>
+    <div class="form-group">
+      <label>Nombre del comprador</label>
+      <input type="text" id="nb_comprador" placeholder="Nombre completo">
+    </div>
+    <div class="form-group">
+      <label>Numero de bingo</label>
+      <input type="number" id="nb_numero" placeholder="Ej: 42" inputmode="numeric">
+    </div>
+    <div class="modal-buttons">
+      <button class="btn btn-danger" onclick="closeModalBingo()">Cancelar</button>
+      <button class="btn btn-primary" onclick="submitNuevoBingo()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Registrar Cobro -->
+<div class="modal-overlay" id="modalCobro" style="display:none;" onclick="if(event.target===this)closeModalCobro()">
+  <div class="modal">
+    <h3 id="cobroTitle">Registrar Cobro</h3>
+    <p style="font-size:0.8rem; color:#888; margin-bottom:10px;" id="cobroSubtitle"></p>
+    <div id="cobroCuotasSelect" class="cuotas-grid" style="margin-bottom:10px;"></div>
+    <div class="form-group">
+      <label>Metodo de pago</label>
+      <select id="cobro_metodo">
+        <option value="Efectivo">Efectivo</option>
+        <option value="Transferencia">Transferencia</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Monto</label>
+      <input type="number" id="cobro_monto" inputmode="numeric" readonly>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn btn-danger" onclick="closeModalCobro()">Cancelar</button>
+      <button class="btn btn-primary" id="btnCobro" onclick="submitCobro()">Cobrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Confirm Delete -->
+<div class="modal-overlay" id="modalDelete" style="display:none;" onclick="if(event.target===this)closeModalDelete()">
+  <div class="modal">
+    <h3>Eliminar vendedor</h3>
+    <p style="font-size:0.85rem; color:#666; margin-bottom:6px;" id="deleteMsg"></p>
+    <div class="modal-buttons">
+      <button class="btn btn-blue" onclick="closeModalDelete()">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmDeleteVendedor()">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<div class="fab-row" id="fabRow">
+  <button class="fab fab-config" onclick="toggleConfig()" title="Config">&#9881;</button>
+  <button class="fab fab-refresh" onclick="loadFromSheets()" title="Recargar">&#8635;</button>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading-overlay" id="loading" style="display:none;">
+  <div class="spinner">Sincronizando<span class="dots"></span></div>
+</div>
+
+<script>
+// ============ CONSTANTS ============
+const CUOTA_VALOR = 10000;
+const TOTAL_CUOTAS = 10;
+const TOTAL_BINGO = CUOTA_VALOR * TOTAL_CUOTAS;
+
+// ============ STATE ============
+let VENDEDORES = []; // [{nombre: 'Juan'}]
+let BINGOS = [];     // [{vendedor, nroBingo, comprador, cuotas: [{nro, monto, metodo, fecha}]}]
+let currentSection = 'dashboard';
+let currentVendor = null;
+let kpiFilterVendor = 'todos';
+let SCRIPT_URL = localStorage.getItem('bingoGasUrl') || '';
+let pendingDeleteVendor = null;
+let cobroBingoIdx = null;
+let cobroSelectedCuotas = [];
+
+// ============ HELPERS ============
+function fmt(n) { return '$' + Number(n).toLocaleString('es-AR'); }
+
+function showLoading(show) {
+  document.getElementById('loading').style.display = show ? 'flex' : 'none';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function getCuotasPagadas(bingo) {
+  return bingo.cuotas ? bingo.cuotas.filter(c => c.monto > 0) : [];
+}
+
+function getCuotasPendientes(bingo) {
+  const pagadas = getCuotasPagadas(bingo).map(c => c.nro);
+  const pend = [];
+  for (let i = 1; i <= TOTAL_CUOTAS; i++) {
+    if (!pagadas.includes(i)) pend.push(i);
+  }
+  return pend;
+}
+
+function getBingoStatus(bingo) {
+  const pagadas = getCuotasPagadas(bingo).length;
+  if (pagadas === 0) return 'pendiente';
+  if (pagadas >= TOTAL_CUOTAS) return 'completo';
+  return 'parcial';
+}
+
+function getBingoMontoCobrado(bingo) {
+  return (bingo.cuotas || []).reduce((s, c) => s + (Number(c.monto) || 0), 0);
+}
+
+// ============ NAVIGATION ============
+function switchSection(section, vendor) {
+  currentSection = section;
+  currentVendor = vendor || null;
+
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+
+  if (section === 'dashboard') {
+    document.getElementById('sectionDashboard').classList.add('active');
+    document.querySelectorAll('.main-tab')[0].classList.add('active');
+    document.getElementById('fabRow').innerHTML = `
+      <button class="fab fab-config" onclick="toggleConfig()" title="Config">&#9881;</button>
+      <button class="fab fab-refresh" onclick="loadFromSheets()" title="Recargar">&#8635;</button>`;
+    updateKPIs();
+    renderRecentPayments();
+  } else if (section === 'vendedores') {
+    document.getElementById('sectionVendedores').classList.add('active');
+    document.querySelectorAll('.main-tab')[1].classList.add('active');
+    document.getElementById('fabRow').innerHTML = `
+      <button class="fab fab-config" onclick="toggleConfig()" title="Config">&#9881;</button>
+      <button class="fab fab-refresh" onclick="loadFromSheets()" title="Recargar">&#8635;</button>`;
+    renderVendedores();
+  } else if (section === 'vendor') {
+    document.getElementById('sectionVendor').classList.add('active');
+    // Highlight the vendor tab
+    const tabs = document.querySelectorAll('.main-tab');
+    tabs.forEach(t => {
+      if (t.dataset.vendor === vendor) t.classList.add('active');
+    });
+    document.getElementById('fabRow').innerHTML = `
+      <button class="fab fab-config" onclick="toggleConfig()" title="Config">&#9881;</button>
+      <button class="fab fab-refresh" onclick="loadFromSheets()" title="Recargar">&#8635;</button>
+      <button class="fab fab-add" onclick="openModalBingo()" title="Nuevo bingo">+</button>`;
+    renderVendorBingos();
+  }
+}
+
+function renderTabs() {
+  const container = document.getElementById('mainTabs');
+  const vendorCount = {};
+  BINGOS.forEach(b => { vendorCount[b.vendedor] = (vendorCount[b.vendedor] || 0) + 1; });
+
+  let html = `<div class="main-tab ${currentSection === 'dashboard' ? 'active' : ''}" onclick="switchSection('dashboard')">Dashboard</div>`;
+  html += `<div class="main-tab ${currentSection === 'vendedores' ? 'active' : ''}" onclick="switchSection('vendedores')">Vendedores</div>`;
+
+  VENDEDORES.forEach(v => {
+    const count = vendorCount[v.nombre] || 0;
+    const isActive = currentSection === 'vendor' && currentVendor === v.nombre;
+    html += `<div class="main-tab ${isActive ? 'active' : ''}" data-vendor="${v.nombre}" onclick="switchSection('vendor','${v.nombre.replace(/'/g, "\\'")}')">${v.nombre} <span class="badge">${count}</span></div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// ============ CONFIG ============
+function checkConfig() {
+  const panel = document.getElementById('configPanel');
+  const urlInput = document.getElementById('scriptUrl');
+  const statusDiv = document.getElementById('configStatus');
+  if (SCRIPT_URL) {
+    urlInput.value = SCRIPT_URL;
+    panel.classList.add('connected');
+    statusDiv.innerHTML = '<div class="status-line ok">Conectado a Google Sheets</div>';
+  } else {
+    panel.style.display = 'block';
+    panel.classList.remove('connected');
+    statusDiv.innerHTML = '<div class="status-line err">No conectado</div>';
+  }
+}
+
+function toggleConfig() {
+  const panel = document.getElementById('configPanel');
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+  if (panel.style.display === 'block') document.getElementById('scriptUrl').value = SCRIPT_URL || '';
+}
+
+function saveConfig() {
+  const url = document.getElementById('scriptUrl').value.trim();
+  if (!url) return;
+  SCRIPT_URL = url;
+  localStorage.setItem('bingoGasUrl', url);
+  checkConfig();
+  document.getElementById('configPanel').style.display = 'none';
+  loadFromSheets();
+  showToast('Conectado');
+}
+
+// ============ GOOGLE SHEETS ============
+async function loadFromSheets() {
+  if (!SCRIPT_URL) return;
+  try {
+    showLoading(true);
+    const res = await fetch(SCRIPT_URL + '?action=getAll');
+    const data = await res.json();
+    if (data.status === 'ok') {
+      VENDEDORES = data.vendedores || [];
+      BINGOS = data.bingos || [];
+      saveLocal();
+      renderAll();
+      showToast('Datos actualizados');
+    }
+  } catch (e) {
+    console.error('Error loading:', e);
+    loadLocal();
+    renderAll();
+    showToast('Error al conectar. Datos locales.');
+  } finally {
+    showLoading(false);
+  }
+}
+
+async function postToSheets(payload) {
+  if (!SCRIPT_URL) { showToast('Configura la URL primero'); return false; }
+  try {
+    showLoading(true);
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    return true;
+  } catch (e) {
+    console.error('Error posting:', e);
+    showToast('Error al guardar');
+    return false;
+  } finally {
+    showLoading(false);
+  }
+}
+
+function saveLocal() {
+  localStorage.setItem('bingo_vendedores', JSON.stringify(VENDEDORES));
+  localStorage.setItem('bingo_bingos', JSON.stringify(BINGOS));
+}
+
+function loadLocal() {
+  try { VENDEDORES = JSON.parse(localStorage.getItem('bingo_vendedores') || '[]'); } catch(e) { VENDEDORES = []; }
+  try { BINGOS = JSON.parse(localStorage.getItem('bingo_bingos') || '[]'); } catch(e) { BINGOS = []; }
+}
+
+// ============ VENDEDORES ============
+async function addVendedor() {
+  const input = document.getElementById('nuevoVendedor');
+  const nombre = input.value.trim();
+  if (!nombre) { showToast('Ingresa el nombre'); return; }
+  if (VENDEDORES.find(v => v.nombre.toLowerCase() === nombre.toLowerCase())) {
+    showToast('Ese vendedor ya existe'); return;
+  }
+
+  const ok = await postToSheets({ action: 'addVendedor', nombre });
+  VENDEDORES.push({ nombre });
+  saveLocal();
+  renderAll();
+  input.value = '';
+  const msg = document.getElementById('vendedorSuccess');
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display = 'none', 2000);
+  showToast('Vendedor agregado');
+}
+
+function openDeleteVendor(nombre) {
+  pendingDeleteVendor = nombre;
+  const bingosCount = BINGOS.filter(b => b.vendedor === nombre).length;
+  document.getElementById('deleteMsg').textContent = bingosCount > 0
+    ? `"${nombre}" tiene ${bingosCount} bingo(s) asignado(s). Se eliminara el vendedor y todos sus bingos.`
+    : `Eliminar a "${nombre}"?`;
+  document.getElementById('modalDelete').style.display = 'flex';
+}
+
+function closeModalDelete() {
+  document.getElementById('modalDelete').style.display = 'none';
+  pendingDeleteVendor = null;
+}
+
+async function confirmDeleteVendedor() {
+  if (!pendingDeleteVendor) return;
+  const nombre = pendingDeleteVendor;
+  await postToSheets({ action: 'deleteVendedor', nombre });
+  VENDEDORES = VENDEDORES.filter(v => v.nombre !== nombre);
+  BINGOS = BINGOS.filter(b => b.vendedor !== nombre);
+  saveLocal();
+  closeModalDelete();
+  if (currentVendor === nombre) switchSection('vendedores');
+  renderAll();
+  showToast('Vendedor eliminado');
+}
+
+function renderVendedores() {
+  const container = document.getElementById('vendedoresList');
+  if (VENDEDORES.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">&#128100;</div><p>No hay vendedores. Agrega uno arriba.</p></div>';
+    return;
+  }
+  container.innerHTML = VENDEDORES.map(v => {
+    const count = BINGOS.filter(b => b.vendedor === v.nombre).length;
+    const cobrado = BINGOS.filter(b => b.vendedor === v.nombre).reduce((s, b) => s + getBingoMontoCobrado(b), 0);
+    return `<div class="vendedor-item">
+      <div class="icon vendedor" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e8f4fd;color:#3498db;font-size:1rem;">&#128100;</div>
+      <div style="flex:1;">
+        <div class="v-name">${v.nombre}</div>
+        <div class="v-count">${count} bingo(s) - Cobrado: ${fmt(cobrado)}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="openDeleteVendor('${v.nombre.replace(/'/g, "\\'")}')">&#128465;</button>
+    </div>`;
+  }).join('');
+}
+
+// ============ BINGOS ============
+function openModalBingo() {
+  document.getElementById('nb_comprador').value = '';
+  document.getElementById('nb_numero').value = '';
+  document.getElementById('modalNuevoBingo').style.display = 'flex';
+  setTimeout(() => document.getElementById('nb_comprador').focus(), 100);
+}
+
+function closeModalBingo() {
+  document.getElementById('modalNuevoBingo').style.display = 'none';
+}
+
+async function submitNuevoBingo() {
+  const comprador = document.getElementById('nb_comprador').value.trim();
+  const numero = document.getElementById('nb_numero').value.trim();
+  if (!comprador) { showToast('Ingresa el nombre del comprador'); return; }
+  if (!numero) { showToast('Ingresa el numero de bingo'); return; }
+  if (!currentVendor) { showToast('Selecciona un vendedor'); return; }
+
+  // Check duplicate bingo number
+  if (BINGOS.find(b => b.nroBingo == numero)) {
+    showToast('Ese numero de bingo ya esta asignado'); return;
+  }
+
+  const bingo = {
+    vendedor: currentVendor,
+    nroBingo: Number(numero),
+    comprador,
+    cuotas: []
+  };
+
+  await postToSheets({ action: 'addBingo', ...bingo });
+  BINGOS.push(bingo);
+  saveLocal();
+  closeModalBingo();
+  renderAll();
+  showToast('Bingo registrado');
+}
+
+function renderVendorBingos() {
+  const container = document.getElementById('vendorBingosList');
+  const search = (document.getElementById('vendorSearch')?.value || '').toLowerCase();
+
+  const bingos = BINGOS.filter(b => {
+    if (b.vendedor !== currentVendor) return false;
+    if (search && !b.comprador.toLowerCase().includes(search) && !String(b.nroBingo).includes(search)) return false;
+    return true;
+  });
+
+  if (bingos.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">&#127922;</div><p>${BINGOS.filter(b => b.vendedor === currentVendor).length === 0 ? 'No hay bingos. Toca + para agregar.' : 'Sin resultados'}</p></div>`;
+    return;
+  }
+
+  container.innerHTML = bingos.map((b, i) => {
+    const realIdx = BINGOS.indexOf(b);
+    const status = getBingoStatus(b);
+    const pagadas = getCuotasPagadas(b).length;
+    const cobrado = getBingoMontoCobrado(b);
+    const pendiente = TOTAL_BINGO - cobrado;
+    const statusLabel = status === 'completo' ? 'PAGO' : status === 'parcial' ? `${pagadas}/${TOTAL_CUOTAS}` : 'PENDIENTE';
+    const badgeClass = status === 'completo' ? 'badge-completo' : status === 'parcial' ? 'badge-parcial' : 'badge-pendiente';
+
+    let cuotasHtml = '';
+    for (let c = 1; c <= TOTAL_CUOTAS; c++) {
+      const cuotaData = (b.cuotas || []).find(x => x.nro === c);
+      const pagada = cuotaData && cuotaData.monto > 0;
+      cuotasHtml += `<div class="cuota-cell ${pagada ? 'pagada' : 'pendiente'}">
+        <div class="cuota-num">C${c}</div>
+        <div class="cuota-status">${pagada ? '&#10003;' : '&#9679;'}</div>
+      </div>`;
+    }
+
+    return `<div class="card" id="bingo-card-${realIdx}">
+      <div class="card-header" onclick="toggleBingoCard(${realIdx})">
+        <div class="icon bingo">&#127922;</div>
+        <div class="info">
+          <div class="name">${b.comprador}</div>
+          <div class="detail">Bingo #${b.nroBingo} - Cobrado: ${fmt(cobrado)}</div>
+        </div>
+        <span class="status-badge ${badgeClass}">${statusLabel}</span>
+        <span class="arrow">&#9660;</span>
+      </div>
+      <div class="card-body">
+        <div class="cuotas-grid">${cuotasHtml}</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          ${status !== 'completo' ? `<button class="btn btn-primary btn-sm" onclick="openCobro(${realIdx})">Registrar cobro</button>` : ''}
+          ${status !== 'completo' ? `<button class="btn btn-warning btn-sm" onclick="openCobroTotal(${realIdx})">Pagar todo (${fmt(pendiente)})</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteBingo(${realIdx})">Eliminar</button>
+        </div>
+        ${pagadas > 0 ? renderCobrosHistory(b) : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCobrosHistory(bingo) {
+  const cobros = (bingo.cuotas || []).filter(c => c.monto > 0).sort((a, b) => a.nro - b.nro);
+  if (cobros.length === 0) return '';
+  let html = '<div style="margin-top:10px; border-top:1px solid #eee; padding-top:8px;"><div style="font-size:0.7rem;color:#888;margin-bottom:4px;">Historial de cobros:</div>';
+  cobros.forEach(c => {
+    html += `<div style="font-size:0.75rem; color:#555; padding:2px 0;">Cuota ${c.nro} - ${fmt(c.monto)} - ${c.metodo || ''} ${c.fecha ? '- ' + c.fecha : ''}</div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function toggleBingoCard(idx) {
+  document.getElementById('bingo-card-' + idx)?.classList.toggle('expanded');
+}
+
+// ============ COBRO ============
+function openCobro(idx) {
+  cobroBingoIdx = idx;
+  cobroSelectedCuotas = [];
+  const bingo = BINGOS[idx];
+  const pendientes = getCuotasPendientes(bingo);
+
+  document.getElementById('cobroTitle').textContent = `Cobrar - ${bingo.comprador}`;
+  document.getElementById('cobroSubtitle').textContent = `Bingo #${bingo.nroBingo}`;
+
+  // Render selectable cuotas
+  const grid = document.getElementById('cobroCuotasSelect');
+  grid.innerHTML = pendientes.map(n =>
+    `<div class="cuota-cell pendiente" id="cobro-c-${n}" onclick="toggleCuotaSelect(${n})">
+      <div class="cuota-num">C${n}</div>
+      <div class="cuota-status">&#9679;</div>
+    </div>`
+  ).join('');
+
+  document.getElementById('cobro_monto').value = '';
+  document.getElementById('cobro_metodo').value = 'Efectivo';
+  document.getElementById('modalCobro').style.display = 'flex';
+}
+
+function openCobroTotal(idx) {
+  cobroBingoIdx = idx;
+  const bingo = BINGOS[idx];
+  const pendientes = getCuotasPendientes(bingo);
+  cobroSelectedCuotas = [...pendientes];
+
+  document.getElementById('cobroTitle').textContent = `Pago completo - ${bingo.comprador}`;
+  document.getElementById('cobroSubtitle').textContent = `Bingo #${bingo.nroBingo} - ${pendientes.length} cuota(s)`;
+  document.getElementById('cobroCuotasSelect').innerHTML = '';
+  document.getElementById('cobro_monto').value = pendientes.length * CUOTA_VALOR;
+  document.getElementById('cobro_metodo').value = 'Efectivo';
+  document.getElementById('modalCobro').style.display = 'flex';
+}
+
+function toggleCuotaSelect(n) {
+  const idx = cobroSelectedCuotas.indexOf(n);
+  if (idx >= 0) {
+    cobroSelectedCuotas.splice(idx, 1);
+  } else {
+    cobroSelectedCuotas.push(n);
+  }
+  // Update visual
+  document.querySelectorAll('#cobroCuotasSelect .cuota-cell').forEach(cell => {
+    const num = parseInt(cell.id.replace('cobro-c-', ''));
+    cell.classList.toggle('selected', cobroSelectedCuotas.includes(num));
+    cell.classList.toggle('pagada', cobroSelectedCuotas.includes(num));
+  });
+  // Update monto
+  document.getElementById('cobro_monto').value = cobroSelectedCuotas.length * CUOTA_VALOR;
+}
+
+function closeModalCobro() {
+  document.getElementById('modalCobro').style.display = 'none';
+  cobroBingoIdx = null;
+  cobroSelectedCuotas = [];
+}
+
+async function submitCobro() {
+  if (cobroBingoIdx === null || cobroSelectedCuotas.length === 0) {
+    showToast('Selecciona al menos una cuota'); return;
+  }
+
+  const metodo = document.getElementById('cobro_metodo').value;
+  const monto = Number(document.getElementById('cobro_monto').value);
+  const bingo = BINGOS[cobroBingoIdx];
+  const fecha = new Date().toLocaleDateString('es-AR');
+
+  // Add cuotas locally
+  if (!bingo.cuotas) bingo.cuotas = [];
+  cobroSelectedCuotas.forEach(n => {
+    // Remove if exists (shouldn't but safety)
+    bingo.cuotas = bingo.cuotas.filter(c => c.nro !== n);
+    bingo.cuotas.push({ nro: n, monto: CUOTA_VALOR, metodo, fecha });
+  });
+
+  // Post to sheets
+  await postToSheets({
+    action: 'registrarCobro',
+    vendedor: bingo.vendedor,
+    nroBingo: bingo.nroBingo,
+    comprador: bingo.comprador,
+    cuotas: cobroSelectedCuotas,
+    montoPorCuota: CUOTA_VALOR,
+    montoTotal: monto,
+    metodo,
+    fecha
+  });
+
+  saveLocal();
+  closeModalCobro();
+  renderAll();
+  showToast(`Cobro registrado: ${cobroSelectedCuotas.length} cuota(s)`);
+}
+
+async function deleteBingo(idx) {
+  const bingo = BINGOS[idx];
+  if (!confirm(`Eliminar bingo #${bingo.nroBingo} de ${bingo.comprador}?`)) return;
+  await postToSheets({ action: 'deleteBingo', vendedor: bingo.vendedor, nroBingo: bingo.nroBingo });
+  BINGOS.splice(idx, 1);
+  saveLocal();
+  renderAll();
+  showToast('Bingo eliminado');
+}
+
+// ============ KPIs ============
+function setKpiFilter(vendor) {
+  kpiFilterVendor = vendor;
+  document.querySelectorAll('.kpi-filter-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === vendor || (vendor === 'todos' && b.textContent.trim() === 'Todos')));
+  updateKPIs();
+  renderRecentPayments();
+}
+
+function renderKpiFilters() {
+  const container = document.getElementById('kpiFilter');
+  let html = `<span class="kpi-filter-btn ${kpiFilterVendor === 'todos' ? 'active' : ''}" onclick="setKpiFilter('todos')">Todos</span>`;
+  VENDEDORES.forEach(v => {
+    html += `<span class="kpi-filter-btn ${kpiFilterVendor === v.nombre ? 'active' : ''}" onclick="setKpiFilter('${v.nombre.replace(/'/g, "\\'")}')">${v.nombre}</span>`;
+  });
+  container.innerHTML = html;
+}
+
+function updateKPIs() {
+  const filtered = kpiFilterVendor === 'todos' ? BINGOS : BINGOS.filter(b => b.vendedor === kpiFilterVendor);
+
+  const totalBingos = filtered.length;
+  let cuotasCobradas = 0, montoCobrado = 0, efectivo = 0, transf = 0;
+
+  filtered.forEach(b => {
+    const pagadas = getCuotasPagadas(b);
+    cuotasCobradas += pagadas.length;
+    pagadas.forEach(c => {
+      montoCobrado += Number(c.monto) || 0;
+      if (c.metodo === 'Efectivo') efectivo += Number(c.monto) || 0;
+      if (c.metodo === 'Transferencia') transf += Number(c.monto) || 0;
+    });
+  });
+
+  const totalCuotas = totalBingos * TOTAL_CUOTAS;
+  const cuotasPend = totalCuotas - cuotasCobradas;
+  const montoPend = cuotasPend * CUOTA_VALOR;
+
+  document.getElementById('kBingos').textContent = totalBingos;
+  document.getElementById('kCuotasCobradas').textContent = cuotasCobradas;
+  document.getElementById('kCuotasPend').textContent = cuotasPend;
+  document.getElementById('kMontoCobrado').textContent = fmt(montoCobrado);
+  document.getElementById('kMontoPend').textContent = fmt(montoPend);
+  document.getElementById('kEfectivo').textContent = fmt(efectivo);
+  document.getElementById('kTransf').textContent = fmt(transf);
+}
+
+function renderRecentPayments() {
+  const container = document.getElementById('recentPayments');
+  const filtered = kpiFilterVendor === 'todos' ? BINGOS : BINGOS.filter(b => b.vendedor === kpiFilterVendor);
+
+  // Collect all payments with context
+  const payments = [];
+  filtered.forEach(b => {
+    (b.cuotas || []).forEach(c => {
+      if (c.monto > 0) {
+        payments.push({
+          comprador: b.comprador,
+          nroBingo: b.nroBingo,
+          vendedor: b.vendedor,
+          cuota: c.nro,
+          monto: c.monto,
+          metodo: c.metodo,
+          fecha: c.fecha
+        });
+      }
+    });
+  });
+
+  // Sort by fecha desc (approximate), then cuota desc
+  payments.sort((a, b) => {
+    if (a.fecha && b.fecha) return a.fecha < b.fecha ? 1 : -1;
+    return b.cuota - a.cuota;
+  });
+
+  const recent = payments.slice(0, 15);
+
+  if (recent.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>No hay cobros registrados</p></div>';
+    return;
+  }
+
+  container.innerHTML = recent.map(p =>
+    `<div style="display:flex;align-items:center;padding:8px 10px;background:white;border-radius:8px;margin-bottom:4px;font-size:0.8rem;box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+      <div style="flex:1;">
+        <strong>${p.comprador}</strong> - Bingo #${p.nroBingo} - Cuota ${p.cuota}
+        <div style="font-size:0.7rem;color:#888;">${p.vendedor} ${p.fecha ? '- ' + p.fecha : ''}</div>
+      </div>
+      <div style="font-weight:700;color:#27ae60;">${fmt(p.monto)}</div>
+      <div style="font-size:0.65rem;color:#888;margin-left:6px;min-width:50px;text-align:right;">${p.metodo}</div>
+    </div>`
+  ).join('');
+}
+
+// ============ RENDER ALL ============
+function renderAll() {
+  renderTabs();
+  renderKpiFilters();
+  updateKPIs();
+  renderRecentPayments();
+  if (currentSection === 'vendedores') renderVendedores();
+  if (currentSection === 'vendor') renderVendorBingos();
+}
+
+// ============ INIT ============
+checkConfig();
+loadLocal();
+renderAll();
+if (SCRIPT_URL) loadFromSheets();
+
+// ============ SERVICE WORKER ============
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(e => console.log('SW error:', e));
+}
+</script>
+</body>
+</html>
