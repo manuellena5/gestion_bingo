@@ -184,6 +184,12 @@
     <div class="kpi-filter" id="kpiFilter">
       <span class="kpi-filter-btn active" onclick="setKpiFilter('todos')">Todos</span>
     </div>
+    <div class="kpi-filter" id="kpiStatusFilter">
+      <span class="kpi-filter-btn active" onclick="setKpiStatusFilter('todos')">&#128209; Todos</span>
+      <span class="kpi-filter-btn" onclick="setKpiStatusFilter('pendiente')">&#128308; Pendientes</span>
+      <span class="kpi-filter-btn" onclick="setKpiStatusFilter('parcial')">&#128992; Parciales</span>
+      <span class="kpi-filter-btn" onclick="setKpiStatusFilter('completo')">&#128994; Completos</span>
+    </div>
     <div class="kpi-row">
       <div class="kpi-item blue"><div class="num" id="kBingos">0</div><div class="label">Bingos vendidos</div></div>
       <div class="kpi-item green"><div class="num" id="kCuotasCobradas">0</div><div class="label">Cuotas cobradas</div></div>
@@ -199,7 +205,14 @@
 
   <!-- Recent payments list -->
   <div style="padding: 8px 12px;">
-    <h3 style="font-size:0.85rem; color:#666; margin-bottom:6px;">Ultimos cobros</h3>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
+      <h3 style="font-size:0.85rem; color:#666;">Ultimos cobros</h3>
+      <div class="kpi-filter" id="cobrosMetodoFilter" style="margin:0;">
+        <span class="kpi-filter-btn active" onclick="setCobrosMetodoFilter('todos')">Todos</span>
+        <span class="kpi-filter-btn" onclick="setCobrosMetodoFilter('Efectivo')">Efectivo</span>
+        <span class="kpi-filter-btn" onclick="setCobrosMetodoFilter('Transferencia')">Transferencia</span>
+      </div>
+    </div>
     <div id="recentPayments"></div>
   </div>
 </div>
@@ -263,7 +276,8 @@
     </div>
     <div class="form-group">
       <label>Monto</label>
-      <input type="number" id="cobro_monto" inputmode="numeric" readonly>
+      <input type="number" id="cobro_monto" inputmode="numeric">
+      <div style="font-size:0.7rem;color:#888;margin-top:3px;" id="cobro_monto_hint"></div>
     </div>
     <div class="modal-buttons">
       <button class="btn btn-danger" onclick="closeModalCobro()">Cancelar</button>
@@ -310,9 +324,21 @@ let SCRIPT_URL = localStorage.getItem('bingoGasUrl') || '';
 let pendingDeleteVendor = null;
 let cobroBingoIdx = null;
 let cobroSelectedCuotas = [];
+let kpiFilterStatus = 'todos';
+let cobrosFilterMetodo = 'todos';
 
 // ============ HELPERS ============
 function fmt(n) { return '$' + Number(n).toLocaleString('es-AR'); }
+
+function formatFecha(fecha) {
+  if (!fecha) return '';
+  const d = new Date(fecha);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  }
+  return String(fecha);
+}
 
 function showLoading(show) {
   document.getElementById('loading').style.display = show ? 'flex' : 'none';
@@ -659,7 +685,7 @@ function renderCobrosHistory(bingo) {
   if (cobros.length === 0) return '';
   let html = '<div style="margin-top:10px; border-top:1px solid #eee; padding-top:8px;"><div style="font-size:0.7rem;color:#888;margin-bottom:4px;">Historial de cobros:</div>';
   cobros.forEach(c => {
-    html += `<div style="font-size:0.75rem; color:#555; padding:2px 0;">Cuota ${c.nro} - ${fmt(c.monto)} - ${c.metodo || ''} ${c.fecha ? '- ' + c.fecha : ''}</div>`;
+    html += `<div style="font-size:0.75rem; color:#555; padding:2px 0;">Cuota ${c.nro} - ${fmt(c.monto)} - ${c.metodo || ''}${c.fecha ? ' - ' + formatFecha(c.fecha) : ''}</div>`;
   });
   html += '</div>';
   return html;
@@ -689,6 +715,8 @@ function openCobro(idx) {
   ).join('');
 
   document.getElementById('cobro_monto').value = '';
+  const hint = document.getElementById('cobro_monto_hint');
+  if (hint) hint.textContent = '';
   document.getElementById('cobro_metodo').value = 'Efectivo';
   document.getElementById('modalCobro').style.display = 'flex';
 }
@@ -720,8 +748,11 @@ function toggleCuotaSelect(n) {
     cell.classList.toggle('selected', cobroSelectedCuotas.includes(num));
     cell.classList.toggle('pagada', cobroSelectedCuotas.includes(num));
   });
-  // Update monto
-  document.getElementById('cobro_monto').value = cobroSelectedCuotas.length * CUOTA_VALOR;
+  // Update monto with suggested value
+  const sugerido = cobroSelectedCuotas.length * CUOTA_VALOR;
+  document.getElementById('cobro_monto').value = sugerido;
+  const hint = document.getElementById('cobro_monto_hint');
+  if (hint) hint.textContent = cobroSelectedCuotas.length > 0 ? 'Sugerido: ' + fmt(sugerido) + ' — podés ingresar otro monto' : '';
 }
 
 function closeModalCobro() {
@@ -737,6 +768,7 @@ async function submitCobro() {
 
   const metodo = document.getElementById('cobro_metodo').value;
   const monto = Number(document.getElementById('cobro_monto').value);
+  if (!monto || monto <= 0) { showToast('Ingresa un monto válido'); return; }
   const bingo = BINGOS[cobroBingoIdx];
   const fecha = new Date().toLocaleDateString('es-AR');
 
@@ -781,8 +813,27 @@ async function deleteBingo(idx) {
 // ============ KPIs ============
 function setKpiFilter(vendor) {
   kpiFilterVendor = vendor;
-  document.querySelectorAll('.kpi-filter-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === vendor || (vendor === 'todos' && b.textContent.trim() === 'Todos')));
+  renderKpiFilters();
   updateKPIs();
+  renderRecentPayments();
+}
+
+function setKpiStatusFilter(status) {
+  kpiFilterStatus = status;
+  document.querySelectorAll('#kpiStatusFilter .kpi-filter-btn').forEach(b => {
+    const val = b.getAttribute('onclick').match(/'([^']+)'/)[1];
+    b.classList.toggle('active', val === status);
+  });
+  updateKPIs();
+  renderRecentPayments();
+}
+
+function setCobrosMetodoFilter(metodo) {
+  cobrosFilterMetodo = metodo;
+  document.querySelectorAll('#cobrosMetodoFilter .kpi-filter-btn').forEach(b => {
+    const val = b.getAttribute('onclick').match(/'([^']+)'/)[1];
+    b.classList.toggle('active', val === metodo);
+  });
   renderRecentPayments();
 }
 
@@ -796,7 +847,8 @@ function renderKpiFilters() {
 }
 
 function updateKPIs() {
-  const filtered = kpiFilterVendor === 'todos' ? BINGOS : BINGOS.filter(b => b.vendedor === kpiFilterVendor);
+  let filtered = kpiFilterVendor === 'todos' ? BINGOS : BINGOS.filter(b => b.vendedor === kpiFilterVendor);
+  if (kpiFilterStatus !== 'todos') filtered = filtered.filter(b => getBingoStatus(b) === kpiFilterStatus);
 
   const totalBingos = filtered.length;
   let cuotasCobradas = 0, montoCobrado = 0, efectivo = 0, transf = 0;
@@ -826,10 +878,11 @@ function updateKPIs() {
 
 function renderRecentPayments() {
   const container = document.getElementById('recentPayments');
-  const filtered = kpiFilterVendor === 'todos' ? BINGOS : BINGOS.filter(b => b.vendedor === kpiFilterVendor);
+  let filtered = kpiFilterVendor === 'todos' ? BINGOS : BINGOS.filter(b => b.vendedor === kpiFilterVendor);
+  if (kpiFilterStatus !== 'todos') filtered = filtered.filter(b => getBingoStatus(b) === kpiFilterStatus);
 
   // Collect all payments with context
-  const payments = [];
+  let payments = [];
   filtered.forEach(b => {
     (b.cuotas || []).forEach(c => {
       if (c.monto > 0) {
@@ -846,8 +899,14 @@ function renderRecentPayments() {
     });
   });
 
-  // Sort by fecha desc (approximate), then cuota desc
+  if (cobrosFilterMetodo !== 'todos') {
+    payments = payments.filter(p => p.metodo === cobrosFilterMetodo);
+  }
+
+  // Sort by fecha desc, then cuota desc
   payments.sort((a, b) => {
+    const da = new Date(a.fecha), db = new Date(b.fecha);
+    if (!isNaN(da) && !isNaN(db)) return db - da;
     if (a.fecha && b.fecha) return a.fecha < b.fecha ? 1 : -1;
     return b.cuota - a.cuota;
   });
@@ -863,10 +922,10 @@ function renderRecentPayments() {
     `<div style="display:flex;align-items:center;padding:8px 10px;background:white;border-radius:8px;margin-bottom:4px;font-size:0.8rem;box-shadow:0 1px 2px rgba(0,0,0,0.05);">
       <div style="flex:1;">
         <strong>${p.comprador}</strong> - Bingo #${p.nroBingo} - Cuota ${p.cuota}
-        <div style="font-size:0.7rem;color:#888;">${p.vendedor} ${p.fecha ? '- ' + p.fecha : ''}</div>
+        <div style="font-size:0.7rem;color:#888;">${p.vendedor}${p.fecha ? ' - ' + formatFecha(p.fecha) : ''}</div>
       </div>
       <div style="font-weight:700;color:#27ae60;">${fmt(p.monto)}</div>
-      <div style="font-size:0.65rem;color:#888;margin-left:6px;min-width:50px;text-align:right;">${p.metodo}</div>
+      <div style="font-size:0.65rem;color:#888;margin-left:6px;min-width:50px;text-align:right;">${p.metodo || ''}</div>
     </div>`
   ).join('');
 }
