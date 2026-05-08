@@ -487,10 +487,10 @@ async function loadFromSheets() {
   }
 }
 
-async function postToSheets(payload) {
-  if (!SCRIPT_URL) { showToast('Configura la URL primero'); return false; }
+async function postToSheets(payload, silent = false) {
+  if (!SCRIPT_URL) { if (!silent) showToast('Configura la URL primero'); return false; }
   try {
-    showLoading(true);
+    if (!silent) showLoading(true);
     await fetch(SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors',
@@ -500,10 +500,10 @@ async function postToSheets(payload) {
     return true;
   } catch (e) {
     console.error('Error posting:', e);
-    showToast('Error al guardar');
+    if (!silent) showToast('Error al guardar');
     return false;
   } finally {
-    showLoading(false);
+    if (!silent) showLoading(false);
   }
 }
 
@@ -800,7 +800,7 @@ async function submitCobro() {
     montoTotal: monto,
     metodo,
     fecha
-  }).catch(e => console.error('Error al enviar cobro a Sheets:', e));
+  }, true).catch(e => console.error('Error al enviar cobro a Sheets:', e));
 }
 
 async function deleteBingo(idx) {
