@@ -761,46 +761,55 @@ function closeModalCobro() {
   cobroSelectedCuotas = [];
 }
 
-async function submitCobro() {
+function submitCobro() {
   if (cobroBingoIdx === null || cobroSelectedCuotas.length === 0) {
-    showToast('Selecciona al menos una cuota'); return;
+    showToast('Seleccioná al menos una cuota'); return;
   }
-
   const metodo = document.getElementById('cobro_metodo').value;
   const monto = Number(document.getElementById('cobro_monto').value);
-  if (!monto || monto <= 0) { showToast('Ingresa un monto válido'); return; }
+  if (!monto || monto <= 0) { showToast('Ingresá un monto válido'); return; }
+
+  // Capturar todo antes de cerrar el modal
   const bingo = BINGOS[cobroBingoIdx];
   const fecha = new Date().toLocaleDateString('es-AR');
+  const cuotasARegistrar = cobroSelectedCuotas.slice();
+  const cantCuotas = cuotasARegistrar.length;
+  const montoPorCuota = monto / cantCuotas;
 
-  // Guardar datos antes de cerrar modal
-  const cantCuotas = cobroSelectedCuotas.length;
-  const cuotasARegistrar = [...cobroSelectedCuotas];
-  const montoPorCuota = cantCuotas > 0 ? monto / cantCuotas : 0;
-
-  // Actualizar estado local y cerrar modal antes del llamado de red
+  // Actualizar estado local
   if (!bingo.cuotas) bingo.cuotas = [];
-  cuotasARegistrar.forEach(n => {
-    bingo.cuotas = bingo.cuotas.filter(c => c.nro !== n);
-    bingo.cuotas.push({ nro: n, monto: montoPorCuota, metodo, fecha });
+  cuotasARegistrar.forEach(function(n) {
+    bingo.cuotas = bingo.cuotas.filter(function(c) { return c.nro !== n; });
+    bingo.cuotas.push({ nro: n, monto: montoPorCuota, metodo: metodo, fecha: fecha });
   });
-
   saveLocal();
-  closeModalCobro();
-  renderAll();
-  showToast(`Cobro registrado: ${cantCuotas} cuota(s) — ${fmt(monto)}`);
 
-  // Enviar a Sheets en segundo plano
-  postToSheets({
-    action: 'registrarCobro',
-    vendedor: bingo.vendedor,
-    nroBingo: bingo.nroBingo,
-    comprador: bingo.comprador,
-    cuotas: cuotasARegistrar,
-    montoPorCuota: montoPorCuota,
-    montoTotal: monto,
-    metodo,
-    fecha
-  }, true).catch(e => console.error('Error al enviar cobro a Sheets:', e));
+  // Cerrar modal y mostrar feedback inmediato
+  document.getElementById('modalCobro').style.display = 'none';
+  cobroBingoIdx = null;
+  cobroSelectedCuotas = [];
+  renderAll();
+  showToast('Cobro registrado: ' + cantCuotas + ' cuota(s) — ' + fmt(monto));
+
+  // Enviar a Sheets en segundo plano sin bloquear la UI
+  if (SCRIPT_URL) {
+    fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'registrarCobro',
+        vendedor: bingo.vendedor,
+        nroBingo: bingo.nroBingo,
+        comprador: bingo.comprador,
+        cuotas: cuotasARegistrar,
+        montoPorCuota: montoPorCuota,
+        montoTotal: monto,
+        metodo: metodo,
+        fecha: fecha
+      })
+    }).catch(function(e) { console.error('Error al enviar cobro:', e); });
+  }
 }
 
 async function deleteBingo(idx) {
