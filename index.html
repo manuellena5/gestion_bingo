@@ -772,32 +772,44 @@ async function submitCobro() {
   const bingo = BINGOS[cobroBingoIdx];
   const fecha = new Date().toLocaleDateString('es-AR');
 
-  // Add cuotas locally
-  const montoPorCuota = cobroSelectedCuotas.length > 0 ? monto / cobroSelectedCuotas.length : 0;
-  if (!bingo.cuotas) bingo.cuotas = [];
-  cobroSelectedCuotas.forEach(n => {
-    // Remove if exists (shouldn't but safety)
-    bingo.cuotas = bingo.cuotas.filter(c => c.nro !== n);
-    bingo.cuotas.push({ nro: n, monto: montoPorCuota, metodo, fecha });
-  });
+  // Guardar datos antes de cerrar modal
+  const cantCuotas = cobroSelectedCuotas.length;
+  const cuotasARegistrar = [...cobroSelectedCuotas];
+  const montoPorCuota = cantCuotas > 0 ? monto / cantCuotas : 0;
 
-  // Post to sheets
-  await postToSheets({
-    action: 'registrarCobro',
-    vendedor: bingo.vendedor,
-    nroBingo: bingo.nroBingo,
-    comprador: bingo.comprador,
-    cuotas: cobroSelectedCuotas,
-    montoPorCuota: montoPorCuota,
-    montoTotal: monto,
-    metodo,
-    fecha
-  });
+  try {
+    // Actualizar estado local
+    if (!bingo.cuotas) bingo.cuotas = [];
+    cuotasARegistrar.forEach(n => {
+      bingo.cuotas = bingo.cuotas.filter(c => c.nro !== n);
+      bingo.cuotas.push({ nro: n, monto: montoPorCuota, metodo, fecha });
+    });
 
-  saveLocal();
-  closeModalCobro();
-  renderAll();
-  showToast(`Cobro registrado: ${cobroSelectedCuotas.length} cuota(s)`);
+    const ok = await postToSheets({
+      action: 'registrarCobro',
+      vendedor: bingo.vendedor,
+      nroBingo: bingo.nroBingo,
+      comprador: bingo.comprador,
+      cuotas: cuotasARegistrar,
+      montoPorCuota: montoPorCuota,
+      montoTotal: monto,
+      metodo,
+      fecha
+    });
+
+    saveLocal();
+    closeModalCobro();
+    renderAll();
+    if (ok) {
+      showToast(`Cobro registrado: ${cantCuotas} cuota(s) — $${fmt(monto)}`);
+    } else {
+      showToast(`Cobro guardado localmente (sin conexión)`);
+    }
+  } catch (e) {
+    console.error('Error en submitCobro:', e);
+    closeModalCobro();
+    showToast('Error al registrar el cobro');
+  }
 }
 
 async function deleteBingo(idx) {
