@@ -718,6 +718,7 @@ function openCobro(idx) {
   const hint = document.getElementById('cobro_monto_hint');
   if (hint) hint.textContent = '';
   document.getElementById('cobro_metodo').value = 'Efectivo';
+  document.getElementById('btnCobro').disabled = false;
   document.getElementById('modalCobro').style.display = 'flex';
 }
 
@@ -732,6 +733,7 @@ function openCobroTotal(idx) {
   document.getElementById('cobroCuotasSelect').innerHTML = '';
   document.getElementById('cobro_monto').value = pendientes.length * CUOTA_VALOR;
   document.getElementById('cobro_metodo').value = 'Efectivo';
+  document.getElementById('btnCobro').disabled = false;
   document.getElementById('modalCobro').style.display = 'flex';
 }
 
@@ -769,6 +771,8 @@ function submitCobro() {
   const monto = Number(document.getElementById('cobro_monto').value);
   if (!monto || monto <= 0) { showToast('Ingresá un monto válido'); return; }
 
+  document.getElementById('btnCobro').disabled = true;
+
   // Capturar todo antes de cerrar el modal
   const bingo = BINGOS[cobroBingoIdx];
   const fecha = new Date().toLocaleDateString('es-AR');
@@ -788,8 +792,8 @@ function submitCobro() {
   document.getElementById('modalCobro').style.display = 'none';
   cobroBingoIdx = null;
   cobroSelectedCuotas = [];
-  renderAll();
   showToast('Cobro registrado: ' + cantCuotas + ' cuota(s) — ' + fmt(monto));
+  renderAll();
 
   // Enviar a Sheets en segundo plano sin bloquear la UI
   if (SCRIPT_URL) {
