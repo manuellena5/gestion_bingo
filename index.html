@@ -57,6 +57,7 @@
 
     /* BUTTONS */
     .btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
     .btn-primary { background: #27ae60; color: white; }
     .btn-primary:hover { background: #219a52; }
     .btn-blue { background: #3498db; color: white; }
@@ -160,7 +161,7 @@
 
 <div class="header">
   <h1>Bingo del Club</h1>
-  <div class="subtitle">Registro de cobros</div>
+  <div class="subtitle">Registro de cobros <span id="appVersion" style="opacity:0.6;">&middot;</span></div>
 </div>
 
 <div class="main-tabs" id="mainTabs">
@@ -310,6 +311,7 @@
 
 <script>
 // ============ CONSTANTS ============
+const APP_VERSION = 'v7';
 const CUOTA_VALOR = 10000;
 const TOTAL_CUOTAS = 10;
 const TOTAL_BINGO = CUOTA_VALOR * TOTAL_CUOTAS;
@@ -764,6 +766,8 @@ function closeModalCobro() {
 }
 
 function submitCobro() {
+  const btnCobro = document.getElementById('btnCobro');
+  if (btnCobro.disabled) return;
   if (cobroBingoIdx === null || cobroSelectedCuotas.length === 0) {
     showToast('Seleccioná al menos una cuota'); return;
   }
@@ -771,7 +775,7 @@ function submitCobro() {
   const monto = Number(document.getElementById('cobro_monto').value);
   if (!monto || monto <= 0) { showToast('Ingresá un monto válido'); return; }
 
-  document.getElementById('btnCobro').disabled = true;
+  btnCobro.disabled = true;
 
   // Capturar todo antes de cerrar el modal
   const bingo = BINGOS[cobroBingoIdx];
@@ -957,6 +961,7 @@ function renderAll() {
 }
 
 // ============ INIT ============
+document.getElementById('appVersion').textContent = '· ' + APP_VERSION;
 checkConfig();
 loadLocal();
 renderAll();
@@ -965,6 +970,14 @@ if (SCRIPT_URL) loadFromSheets();
 // ============ SERVICE WORKER ============
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(e => console.log('SW error:', e));
+
+  // Si se activa una versión nueva del SW, recargar para tomar el código actualizado
+  let swRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swRefreshing) return;
+    swRefreshing = true;
+    window.location.reload();
+  });
 }
 </script>
 </body>

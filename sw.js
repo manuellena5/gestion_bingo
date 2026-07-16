@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bingo-club-v5';
+const CACHE_NAME = 'bingo-club-v7';
 const urlsToCache = [
   './',
   './index.html',
