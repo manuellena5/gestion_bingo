@@ -187,6 +187,15 @@ function deleteBingo(data) {
 function registrarCobro(data) {
   const sheet = getOrCreateSheet(SHEET_COBROS, ['Vendedor', 'NroBingo', 'Comprador', 'NroCuota', 'Monto', 'MetodoPago', 'Fecha']);
 
+  // La webapp manda data.fecha como timestamp ISO (fecha + hora).
+  // Se guarda como Date real para que la planilla ordene y filtre bien,
+  // y para que getAll() lo devuelva con la hora incluida.
+  let fecha = new Date();
+  if (data.fecha) {
+    const parsed = new Date(data.fecha);
+    if (!isNaN(parsed.getTime())) fecha = parsed;
+  }
+
   // data.cuotas is an array of cuota numbers
   const cuotas = data.cuotas || [];
   cuotas.forEach(nroCuota => {
@@ -197,8 +206,10 @@ function registrarCobro(data) {
       nroCuota,
       data.montoPorCuota || 10000,
       data.metodo || 'Efectivo',
-      data.fecha || new Date().toLocaleDateString('es-AR')
+      fecha
     ]);
+    // Formato visible dd/mm/aaaa hh:mm en la columna Fecha (col 7)
+    sheet.getRange(sheet.getLastRow(), 7).setNumberFormat('dd/mm/yyyy hh:mm');
   });
 
   return jsonResponse({ status: 'ok', message: 'Cobro registrado' });

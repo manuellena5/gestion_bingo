@@ -155,6 +155,20 @@
       .kpi-item .num { font-size: 0.95rem; }
       .cuotas-grid { grid-template-columns: repeat(5, 1fr); gap: 3px; }
     }
+
+    /* ESCRITORIO: contenido centrado en una columna, no a todo el ancho.
+       En celular (menos de 768px) sigue ocupando el 100% como antes. */
+    @media (min-width: 768px) {
+      body { background: #e9ecf1; }
+      .header, .main-tabs, .config-panel { width: 100%; }
+      .main-tabs { justify-content: center; }
+      .section { max-width: 880px; margin: 0 auto; }
+      .kpi-section { border-radius: 0 0 14px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+      .config-panel > * { max-width: 880px; margin-left: auto; margin-right: auto; }
+      .form-container { max-width: 560px; }
+      .search-bar { border-radius: 0 0 12px 12px; }
+      .modal { max-width: 460px; }
+    }
   </style>
 </head>
 <body>
@@ -165,7 +179,7 @@
 </div>
 
 <div class="main-tabs" id="mainTabs">
-  <div class="main-tab active" onclick="switchSection('dashboard')">Dashboard</div>
+  <div class="main-tab active" onclick="switchSection('dashboard')">Resumen</div>
   <div class="main-tab" onclick="switchSection('vendedores')">Vendedores</div>
   <!-- Dynamic vendor tabs will be added here -->
 </div>
@@ -258,7 +272,7 @@
     </div>
     <div class="modal-buttons">
       <button class="btn btn-danger" onclick="closeModalBingo()">Cancelar</button>
-      <button class="btn btn-primary" onclick="submitNuevoBingo()">Guardar</button>
+      <button class="btn btn-primary" id="btnNuevoBingo" onclick="submitNuevoBingo()">Guardar</button>
     </div>
   </div>
 </div>
@@ -312,7 +326,7 @@
 
 <script>
 // ============ CONSTANTS ============
-const APP_VERSION = 'v9';
+const APP_VERSION = 'v11';
 const CUOTA_VALOR = 10000;
 const TOTAL_CUOTAS = 10;
 const TOTAL_BINGO = CUOTA_VALOR * TOTAL_CUOTAS;
@@ -339,14 +353,47 @@ let cobrosFilterMetodo = 'todos';
 // ============ HELPERS ============
 function fmt(n) { return '$' + Number(n).toLocaleString('es-AR'); }
 
-function formatFecha(fecha) {
-  if (!fecha) return '';
-  const d = new Date(fecha);
-  if (!isNaN(d.getTime())) {
-    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+// Devuelve un Date valido a partir de cualquier formato que haya quedado guardado:
+//  - ISO nuevo ("2026-08-19T14:32:10.123Z") -> con hora
+//  - Date que devuelve Sheets
+//  - legacy "19/8/2026" (solo fecha, sin hora) -> se toma el mediodia local
+// Si no se puede interpretar, devuelve null.
+function parseFecha(fecha) {
+  if (!fecha) return null;
+  if (fecha instanceof Date) return isNaN(fecha.getTime()) ? null : fecha;
+
+  const s = String(fecha).trim();
+
+  // Formato viejo d/m/aaaa (opcionalmente con hora). Ojo: new Date("19/8/2026")
+  // da Invalid Date, por eso hay que partirlo a mano.
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[,\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (m) {
+    const [, dd, mm, yyyy, hh, mi, ss] = m;
+    // Sin hora se usa 12:00 para que no se corra de dia por zona horaria.
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd),
+      hh !== undefined ? Number(hh) : 12, mi !== undefined ? Number(mi) : 0, ss !== undefined ? Number(ss) : 0);
+    return isNaN(d.getTime()) ? null : d;
   }
-  return String(fecha);
+
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// true si el registro tiene hora real guardada (los viejos solo tienen fecha)
+function tieneHora(fecha) {
+  if (!fecha) return false;
+  if (fecha instanceof Date) return true;
+  const s = String(fecha).trim();
+  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return false;
+  return /\d{1,2}:\d{2}/.test(s) || /T\d{2}:\d{2}/.test(s);
+}
+
+function formatFecha(fecha) {
+  const d = parseFecha(fecha);
+  if (!d) return fecha ? String(fecha) : '';
+  const dia = d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  if (!tieneHora(fecha)) return dia;
+  return dia + ' ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
 function showLoading(show) {
@@ -427,7 +474,7 @@ function renderTabs() {
   const vendorCount = {};
   BINGOS.forEach(b => { vendorCount[b.vendedor] = (vendorCount[b.vendedor] || 0) + 1; });
 
-  let html = `<div class="main-tab ${currentSection === 'dashboard' ? 'active' : ''}" onclick="switchSection('dashboard')">Dashboard</div>`;
+  let html = `<div class="main-tab ${currentSection === 'dashboard' ? 'active' : ''}" onclick="switchSection('dashboard')">Resumen</div>`;
   html += `<div class="main-tab ${currentSection === 'vendedores' ? 'active' : ''}" onclick="switchSection('vendedores')">Vendedores</div>`;
 
   VENDEDORES.forEach(v => {
@@ -609,18 +656,28 @@ function renderVendedores() {
 }
 
 // ============ BINGOS ============
+// Candado contra doble guardado: mientras se esta enviando a Sheets el boton
+// queda deshabilitado y un segundo click no hace nada.
+let guardandoBingo = false;
+
 function openModalBingo() {
   document.getElementById('nb_comprador').value = '';
   document.getElementById('nb_numero').value = '';
+  guardandoBingo = false;
+  document.getElementById('btnNuevoBingo').disabled = false;
   document.getElementById('modalNuevoBingo').style.display = 'flex';
   setTimeout(() => document.getElementById('nb_comprador').focus(), 100);
 }
 
 function closeModalBingo() {
   document.getElementById('modalNuevoBingo').style.display = 'none';
+  guardandoBingo = false;
+  document.getElementById('btnNuevoBingo').disabled = false;
 }
 
 async function submitNuevoBingo() {
+  if (guardandoBingo) return;
+
   const comprador = document.getElementById('nb_comprador').value.trim();
   const numero = document.getElementById('nb_numero').value.trim();
   if (!comprador) { showToast('Ingresa el nombre del comprador'); return; }
@@ -632,6 +689,13 @@ async function submitNuevoBingo() {
     showToast('Ese numero de bingo ya esta asignado'); return;
   }
 
+  // Bloquear antes de cualquier await
+  guardandoBingo = true;
+  const btn = document.getElementById('btnNuevoBingo');
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Guardando...';
+
   const bingo = {
     vendedor: currentVendor,
     nroBingo: Number(numero),
@@ -639,12 +703,21 @@ async function submitNuevoBingo() {
     cuotas: []
   };
 
-  await postToSheets({ action: 'addBingo', ...bingo });
-  BINGOS.push(bingo);
-  saveLocal();
-  closeModalBingo();
-  renderAll();
-  showToast('Bingo registrado');
+  try {
+    await postToSheets({ action: 'addBingo', ...bingo });
+    BINGOS.push(bingo);
+    saveLocal();
+    closeModalBingo();
+    renderAll();
+    showToast('Bingo registrado');
+  } catch (e) {
+    console.error('Error al guardar bingo:', e);
+    showToast('Error al guardar. Reintenta.');
+  } finally {
+    btn.textContent = textoOriginal;
+    btn.disabled = false;
+    guardandoBingo = false;
+  }
 }
 
 function renderVendorBingos() {
@@ -695,7 +768,7 @@ function renderVendorBingos() {
         <div class="cuotas-grid">${cuotasHtml}</div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           ${status !== 'completo' ? `<button class="btn btn-primary btn-sm" onclick="openCobro(${realIdx})">Registrar cobro</button>` : ''}
-          ${status !== 'completo' ? `<button class="btn btn-warning btn-sm" onclick="openCobroTotal(${realIdx})">Pagar todo (${fmt(pendiente)})</button>` : ''}
+          ${status !== 'completo' ? `<button class="btn btn-warning btn-sm" onclick="openCobroTotal(${realIdx})">Cobrar todo (${fmt(pendiente)})</button>` : ''}
           <button class="btn btn-danger btn-sm" onclick="deleteBingo(${realIdx})">Eliminar</button>
         </div>
         ${pagadas > 0 ? renderCobrosHistory(b) : ''}
@@ -801,7 +874,8 @@ function submitCobro() {
 
   // Capturar todo antes de cerrar el modal
   const bingo = BINGOS[cobroBingoIdx];
-  const fecha = new Date().toLocaleDateString('es-AR');
+  // Timestamp completo en ISO: guarda fecha Y hora, y ordena bien siempre.
+  const fecha = new Date().toISOString();
   const cuotasARegistrar = cobroSelectedCuotas.slice();
   const cantCuotas = cuotasARegistrar.length;
   const montoPorCuota = monto / cantCuotas;
@@ -996,11 +1070,13 @@ function renderRecentPayments() {
   let grupos = Array.from(mapa.values());
   grupos.forEach(g => g.cuotas.sort((a, b) => a.cuota - b.cuota));
 
-  // Sort by fecha desc, then cuota mas alta desc
+  // Mas reciente arriba. Se compara por timestamp real (fecha + hora).
+  // Los registros viejos sin hora caen al mediodia de su dia (ver parseFecha).
   grupos.sort((a, b) => {
-    const da = new Date(a.fecha), db = new Date(b.fecha);
-    if (!isNaN(da) && !isNaN(db) && da.getTime() !== db.getTime()) return db - da;
-    if (a.fecha && b.fecha && a.fecha !== b.fecha) return a.fecha < b.fecha ? 1 : -1;
+    const ta = parseFecha(a.fecha), tb = parseFecha(b.fecha);
+    if (ta && tb && ta.getTime() !== tb.getTime()) return tb - ta;
+    if (ta && !tb) return -1;   // sin fecha va al final
+    if (!ta && tb) return 1;
     return b.cuotas[b.cuotas.length - 1].cuota - a.cuotas[a.cuotas.length - 1].cuota;
   });
 
