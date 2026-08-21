@@ -32,7 +32,7 @@
     .kpi-filter-btn { padding: 4px 10px; border: 1px solid #ddd; border-radius: 16px; font-size: 0.7rem; cursor: pointer; background: white; color: #666; transition: all 0.2s; }
     .kpi-filter-btn.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
     .kpi-row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
-    .kpi-item { text-align: center; min-width: 70px; background: #f8f9fa; border-radius: 10px; padding: 8px 6px; }
+    .kpi-item { text-align: center; flex: 1 1 0; min-width: 70px; max-width: 220px; background: #f8f9fa; border-radius: 10px; padding: 10px 6px; }
     .kpi-item .num { font-size: 1.1rem; font-weight: 700; }
     .kpi-item .label { font-size: 0.6rem; color: #666; margin-top: 2px; }
     .kpi-item.green .num { color: #27ae60; }
@@ -156,6 +156,54 @@
       .cuotas-grid { grid-template-columns: repeat(5, 1fr); gap: 3px; }
     }
 
+    /* BARRA DE PROGRESO (Resumen) */
+    .progreso-wrap { height: 8px; background: #eceff3; border-radius: 6px; overflow: hidden; margin-top: 10px; }
+    .progreso-bar { height: 100%; background: linear-gradient(90deg,#27ae60,#2ecc71); width: 0%; transition: width .3s; }
+    .progreso-label { font-size: 0.65rem; color: #888; text-align: center; margin-top: 4px; }
+
+    /* FILTROS */
+    .filtros { background: white; padding: 10px 12px; border-bottom: 1px solid #e6e8eb; }
+    .filtro-search { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 0.85rem; outline: none; margin-bottom: 8px; }
+    .filtro-search:focus { border-color: #3498db; }
+    .filtro-grupo { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; flex-wrap: wrap; }
+    .filtro-lab { font-size: 0.62rem; color: #aaa; text-transform: uppercase; letter-spacing: .5px; min-width: 58px; }
+    .filtro-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+
+    /* TABLA */
+    .tabla-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 6px; gap: 8px; flex-wrap: wrap; }
+    .tabla-count { font-size: 0.75rem; color: #888; }
+    .tabla-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 12px 12px; }
+    .tabla { width: 100%; border-collapse: separate; border-spacing: 0; background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); font-size: 0.8rem; min-width: 460px; }
+    .tabla thead tr th:first-child { border-top-left-radius: 10px; }
+    .tabla thead tr th:last-child { border-top-right-radius: 10px; }
+    .tabla tbody tr:last-child td:first-child { border-bottom-left-radius: 10px; }
+    .tabla tbody tr:last-child td:last-child { border-bottom-right-radius: 10px; }
+    .tabla th { background: #f7f8fa; color: #667; font-size: 0.68rem; text-transform: uppercase; letter-spacing: .4px; font-weight: 700; text-align: left; padding: 9px 10px; white-space: nowrap; border-bottom: 1px solid #e6e8eb; }
+    .tabla th.sortable { cursor: pointer; user-select: none; }
+    .tabla th.sortable:hover { background: #eef1f5; }
+    .sort-ind { color: #b0b6bd; font-size: 0.7rem; }
+    .sort-ind.on { color: #1a1a2e; }
+    .tabla td { padding: 9px 10px; border-bottom: 1px solid #f1f2f4; white-space: nowrap; }
+    .tabla tbody tr:last-child td { border-bottom: none; }
+    .tabla tbody tr:hover td { background: #fafbfc; }
+    .tabla .num-col { text-align: right; }
+    .tabla .col-nro { font-weight: 700; color: #1a1a2e; }
+    .tabla .col-comprador { font-weight: 600; white-space: normal; min-width: 130px; }
+    .cuotas-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; }
+    .cuotas-pill.completo { background: #d5f5e3; color: #1e8449; }
+    .cuotas-pill.parcial { background: #fef3e2; color: #b9770e; }
+    .cuotas-pill.pendiente { background: #fdeaea; color: #c0392b; }
+    .tabla-fila-click { cursor: pointer; }
+
+    /* Columnas fijas al hacer scroll lateral en el celular.
+       El ancho de Nro tiene que ser fijo y coincidir con el left de Comprador,
+       sino al desplazar se pisan o queda un hueco. */
+    .tabla th.col-nro, .tabla td.col-nro { position: sticky; left: 0; z-index: 2; background: white; width: 64px; min-width: 64px; max-width: 64px; }
+    .tabla th.col-nro { background: #f7f8fa; z-index: 3; }
+    .tabla th.col-comprador, .tabla td.col-comprador { position: sticky; left: 64px; z-index: 2; background: white; box-shadow: 1px 0 0 #eef0f2; }
+    .tabla th.col-comprador { background: #f7f8fa; z-index: 3; }
+    .tabla tbody tr:hover td.col-nro, .tabla tbody tr:hover td.col-comprador { background: #fafbfc; }
+
     /* ESCRITORIO: contenido centrado en una columna, no a todo el ancho.
        En celular (menos de 768px) sigue ocupando el 100% como antes. */
     @media (min-width: 768px) {
@@ -179,8 +227,9 @@
 </div>
 
 <div class="main-tabs" id="mainTabs">
-  <div class="main-tab active" onclick="switchSection('dashboard')">Resumen</div>
-  <div class="main-tab" onclick="switchSection('vendedores')">Vendedores</div>
+  <div class="main-tab active" data-section="dashboard" onclick="switchSection('dashboard')">Resumen</div>
+  <div class="main-tab" data-section="cobros" onclick="switchSection('cobros')">Cobros</div>
+  <div class="main-tab" data-section="vendedores" onclick="switchSection('vendedores')">Vendedores</div>
   <!-- Dynamic vendor tabs will be added here -->
 </div>
 
@@ -194,41 +243,71 @@
   <div id="configStatus"></div>
 </div>
 
-<!-- ========== DASHBOARD ========== -->
+<!-- ========== RESUMEN ========== -->
 <div class="section active" id="sectionDashboard">
   <div class="kpi-section">
-    <div class="kpi-filter" id="kpiFilter">
-      <span class="kpi-filter-btn active" onclick="setKpiFilter('todos')">Todos</span>
-    </div>
-    <div class="kpi-filter" id="kpiStatusFilter">
-      <span class="kpi-filter-btn active" onclick="setKpiStatusFilter('todos')">&#128209; Todos</span>
-      <span class="kpi-filter-btn" onclick="setKpiStatusFilter('pendiente')">&#128308; Pendientes</span>
-      <span class="kpi-filter-btn" onclick="setKpiStatusFilter('parcial')">&#128992; Parciales</span>
-      <span class="kpi-filter-btn" onclick="setKpiStatusFilter('completo')">&#128994; Completos</span>
-    </div>
     <div class="kpi-row">
-      <div class="kpi-item blue"><div class="num" id="kBingos">0</div><div class="label">Bingos vendidos</div></div>
-      <div class="kpi-item green"><div class="num" id="kCuotasCobradas">0</div><div class="label">Cuotas cobradas</div></div>
-      <div class="kpi-item orange"><div class="num" id="kCuotasPend">0</div><div class="label">Cuotas pendientes</div></div>
-    </div>
-    <div class="kpi-row" style="margin-top:8px;">
+      <div class="kpi-item blue"><div class="num" id="kBingos">0</div><div class="label">Bingos</div></div>
       <div class="kpi-item green"><div class="num" id="kMontoCobrado">$0</div><div class="label">Cobrado</div></div>
-      <div class="kpi-item red"><div class="num" id="kMontoPend">$0</div><div class="label">Pendiente</div></div>
+      <div class="kpi-item" style="background:#f1f3f5;"><div class="num" id="kMontoTotal" style="color:#495057;">$0</div><div class="label">Total</div></div>
+    </div>
+    <div class="progreso-wrap"><div class="progreso-bar" id="resProgreso"></div></div>
+    <div class="progreso-label" id="resProgresoLabel"></div>
+  </div>
+
+  <div class="filtros">
+    <input type="text" class="filtro-search" id="resSearch" placeholder="Buscar por comprador o numero..." oninput="setResSearch(this.value)">
+    <div class="filtro-grupo"><span class="filtro-lab">Vendedor</span><span class="filtro-chips" id="resVendedorFilter"></span></div>
+    <div class="filtro-grupo"><span class="filtro-lab">Estado</span><span class="filtro-chips" id="resEstadoFilter"></span></div>
+  </div>
+
+  <div class="tabla-head">
+    <span id="resCount" class="tabla-count"></span>
+    <span style="display:flex; gap:6px;">
+      <button class="btn btn-blue btn-sm" onclick="exportarResumenCSV()">&#8615; CSV</button>
+      <button class="btn btn-blue btn-sm" onclick="exportarResumenImagen()">&#128247; Imagen</button>
+    </span>
+  </div>
+
+  <div class="tabla-scroll">
+    <table class="tabla" id="tablaResumen">
+      <thead>
+        <tr>
+          <th class="col-nro sortable" onclick="sortResumen('nro')">Nro <span class="sort-ind" data-col="nro"></span></th>
+          <th class="col-comprador sortable" onclick="sortResumen('comprador')">Comprador <span class="sort-ind" data-col="comprador"></span></th>
+          <th class="sortable" onclick="sortResumen('vendedor')">Vendedor <span class="sort-ind" data-col="vendedor"></span></th>
+          <th class="num-col sortable" onclick="sortResumen('cuotas')">Cuotas pagas <span class="sort-ind" data-col="cuotas"></span></th>
+        </tr>
+      </thead>
+      <tbody id="tablaResumenBody"></tbody>
+    </table>
+  </div>
+  <div id="resumenVacio"></div>
+</div>
+
+<!-- ========== COBROS ========== -->
+<div class="section" id="sectionCobros">
+  <div class="kpi-section">
+    <div class="kpi-row">
+      <div class="kpi-item blue"><div class="num" id="kCobTransac">0</div><div class="label">Cobros</div></div>
+      <div class="kpi-item green"><div class="num" id="kCobTotal">$0</div><div class="label">Total</div></div>
       <div class="kpi-item purple"><div class="num" id="kEfectivo">$0</div><div class="label">Efectivo</div></div>
       <div class="kpi-item blue"><div class="num" id="kTransf">$0</div><div class="label">Transferencia</div></div>
     </div>
   </div>
 
-  <!-- Recent payments list -->
-  <div style="padding: 8px 12px;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; flex-wrap:wrap; gap:6px;">
-      <h3 style="font-size:0.85rem; color:#666;">Ultimos cobros</h3>
-      <div class="kpi-filter" id="cobrosMetodoFilter" style="margin:0;">
-        <span class="kpi-filter-btn active" onclick="setCobrosMetodoFilter('todos')">Todos</span>
-        <span class="kpi-filter-btn" onclick="setCobrosMetodoFilter('Efectivo')">Efectivo</span>
-        <span class="kpi-filter-btn" onclick="setCobrosMetodoFilter('Transferencia')">Transferencia</span>
-      </div>
-    </div>
+  <div class="filtros">
+    <input type="text" class="filtro-search" id="cobSearch" placeholder="Buscar por comprador o numero..." oninput="setCobSearch(this.value)">
+    <div class="filtro-grupo"><span class="filtro-lab">Vendedor</span><span class="filtro-chips" id="cobVendedorFilter"></span></div>
+    <div class="filtro-grupo"><span class="filtro-lab">Metodo</span><span class="filtro-chips" id="cobMetodoFilter"></span></div>
+  </div>
+
+  <div class="tabla-head">
+    <span id="cobCount" class="tabla-count"></span>
+    <button class="btn btn-blue btn-sm" onclick="exportarCobrosCSV()">&#8615; CSV</button>
+  </div>
+
+  <div style="padding: 0 12px 12px;">
     <div id="recentPayments"></div>
   </div>
 </div>
@@ -347,7 +426,7 @@
 
 <script>
 // ============ CONSTANTS ============
-const APP_VERSION = 'v12';
+const APP_VERSION = 'v14';
 const CUOTA_VALOR = 10000;
 const TOTAL_CUOTAS = 10;
 const TOTAL_BINGO = CUOTA_VALOR * TOTAL_CUOTAS;
@@ -368,8 +447,14 @@ if (GAS_URL) { try { localStorage.setItem('bingoGasUrl', GAS_URL); } catch (e) {
 let pendingDeleteVendor = null;
 let cobroBingoIdx = null;
 let cobroSelectedCuotas = [];
+// Filtros de la pantalla Resumen
 let kpiFilterStatus = 'todos';
+let resSearch = '';
+let resSort = { col: 'nro', dir: 'asc' };
+// Filtros de la pantalla Cobros (independientes de los del Resumen)
 let cobrosFilterMetodo = 'todos';
+let cobFilterVendor = 'todos';
+let cobSearch = '';
 
 // ============ HELPERS ============
 function fmt(n) { return '$' + Number(n).toLocaleString('es-AR'); }
@@ -460,17 +545,29 @@ function switchSection(section, vendor) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
 
+  const marcarTab = sec => {
+    document.querySelectorAll('.main-tab').forEach(t => {
+      if (t.dataset.section === sec) t.classList.add('active');
+    });
+  };
+
   if (section === 'dashboard') {
     document.getElementById('sectionDashboard').classList.add('active');
-    document.querySelectorAll('.main-tab')[0].classList.add('active');
+    marcarTab('dashboard');
     document.getElementById('fabRow').innerHTML = `
       <button class="fab fab-config" onclick="toggleConfig()" title="Config">&#9881;</button>
       <button class="fab fab-refresh" onclick="loadFromSheets()" title="Recargar">&#8635;</button>`;
-    updateKPIs();
+    renderResumen();
+  } else if (section === 'cobros') {
+    document.getElementById('sectionCobros').classList.add('active');
+    marcarTab('cobros');
+    document.getElementById('fabRow').innerHTML = `
+      <button class="fab fab-config" onclick="toggleConfig()" title="Config">&#9881;</button>
+      <button class="fab fab-refresh" onclick="loadFromSheets()" title="Recargar">&#8635;</button>`;
     renderRecentPayments();
   } else if (section === 'vendedores') {
     document.getElementById('sectionVendedores').classList.add('active');
-    document.querySelectorAll('.main-tab')[1].classList.add('active');
+    marcarTab('vendedores');
     document.getElementById('fabRow').innerHTML = `
       <button class="fab fab-config" onclick="toggleConfig()" title="Config">&#9881;</button>
       <button class="fab fab-refresh" onclick="loadFromSheets()" title="Recargar">&#8635;</button>`;
@@ -495,8 +592,9 @@ function renderTabs() {
   const vendorCount = {};
   BINGOS.forEach(b => { vendorCount[b.vendedor] = (vendorCount[b.vendedor] || 0) + 1; });
 
-  let html = `<div class="main-tab ${currentSection === 'dashboard' ? 'active' : ''}" onclick="switchSection('dashboard')">Resumen</div>`;
-  html += `<div class="main-tab ${currentSection === 'vendedores' ? 'active' : ''}" onclick="switchSection('vendedores')">Vendedores</div>`;
+  let html = `<div class="main-tab ${currentSection === 'dashboard' ? 'active' : ''}" data-section="dashboard" onclick="switchSection('dashboard')">Resumen</div>`;
+  html += `<div class="main-tab ${currentSection === 'cobros' ? 'active' : ''}" data-section="cobros" onclick="switchSection('cobros')">Cobros</div>`;
+  html += `<div class="main-tab ${currentSection === 'vendedores' ? 'active' : ''}" data-section="vendedores" onclick="switchSection('vendedores')">Vendedores</div>`;
 
   VENDEDORES.forEach(v => {
     const count = vendorCount[v.nombre] || 0;
@@ -1052,75 +1150,160 @@ async function deleteBingo(idx) {
   showToast('Bingo eliminado');
 }
 
-// ============ KPIs ============
-function setKpiFilter(vendor) {
-  kpiFilterVendor = vendor;
-  renderKpiFilters();
-  updateKPIs();
-  renderRecentPayments();
+// ============ FILTROS (chips reutilizables) ============
+// Dibuja una fila de chips. opciones: [{val, lab}]. onclickFn: nombre de la funcion global.
+function renderChips(containerId, opciones, actual, onclickFn) {
+  const cont = document.getElementById(containerId);
+  if (!cont) return;
+  cont.innerHTML = opciones.map(o =>
+    `<span class="kpi-filter-btn ${o.val === actual ? 'active' : ''}" onclick="${onclickFn}('${String(o.val).replace(/'/g, "\\'")}')">${o.lab}</span>`
+  ).join('');
 }
 
-function setKpiStatusFilter(status) {
-  kpiFilterStatus = status;
-  document.querySelectorAll('#kpiStatusFilter .kpi-filter-btn').forEach(b => {
-    const val = b.getAttribute('onclick').match(/'([^']+)'/)[1];
-    b.classList.toggle('active', val === status);
-  });
-  updateKPIs();
-  renderRecentPayments();
+function opcionesVendedor() {
+  return [{ val: 'todos', lab: 'Todos' }].concat(VENDEDORES.map(v => ({ val: v.nombre, lab: v.nombre })));
 }
+const OPC_ESTADO = [
+  { val: 'todos', lab: 'Todos' },
+  { val: 'pendiente', lab: '&#128308; Pendientes' },
+  { val: 'parcial', lab: '&#128992; Parciales' },
+  { val: 'completo', lab: '&#128994; Completos' }
+];
+const OPC_METODO = [
+  { val: 'todos', lab: 'Todos' },
+  { val: 'Efectivo', lab: 'Efectivo' },
+  { val: 'Transferencia', lab: 'Transferencia' }
+];
 
-function setCobrosMetodoFilter(metodo) {
-  cobrosFilterMetodo = metodo;
-  document.querySelectorAll('#cobrosMetodoFilter .kpi-filter-btn').forEach(b => {
-    const val = b.getAttribute('onclick').match(/'([^']+)'/)[1];
-    b.classList.toggle('active', val === metodo);
-  });
-  renderRecentPayments();
-}
+// ---- Filtros de la pantalla Resumen
+function setKpiFilter(vendor) { kpiFilterVendor = vendor; renderResumen(); }
+function setKpiStatusFilter(status) { kpiFilterStatus = status; renderResumen(); }
+function setResSearch(txt) { resSearch = txt; renderResumen(); }
+
+// ---- Filtros de la pantalla Cobros
+function setCobVendedorFilter(vendor) { cobFilterVendor = vendor; renderRecentPayments(); }
+function setCobrosMetodoFilter(metodo) { cobrosFilterMetodo = metodo; renderRecentPayments(); }
+function setCobSearch(txt) { cobSearch = txt; renderRecentPayments(); }
 
 function renderKpiFilters() {
-  const container = document.getElementById('kpiFilter');
-  let html = `<span class="kpi-filter-btn ${kpiFilterVendor === 'todos' ? 'active' : ''}" onclick="setKpiFilter('todos')">Todos</span>`;
-  VENDEDORES.forEach(v => {
-    html += `<span class="kpi-filter-btn ${kpiFilterVendor === v.nombre ? 'active' : ''}" onclick="setKpiFilter('${v.nombre.replace(/'/g, "\\'")}')">${v.nombre}</span>`;
-  });
-  container.innerHTML = html;
+  renderChips('resVendedorFilter', opcionesVendedor(), kpiFilterVendor, 'setKpiFilter');
+  renderChips('resEstadoFilter', OPC_ESTADO, kpiFilterStatus, 'setKpiStatusFilter');
+  renderChips('cobVendedorFilter', opcionesVendedor(), cobFilterVendor, 'setCobVendedorFilter');
+  renderChips('cobMetodoFilter', OPC_METODO, cobrosFilterMetodo, 'setCobrosMetodoFilter');
 }
 
-function updateKPIs() {
-  let filtered = kpiFilterVendor === 'todos' ? BINGOS : BINGOS.filter(b => b.vendedor === kpiFilterVendor);
-  if (kpiFilterStatus !== 'todos') filtered = filtered.filter(b => getBingoStatus(b) === kpiFilterStatus);
-
-  const totalBingos = filtered.length;
-  let cuotasCobradas = 0, montoCobrado = 0, efectivo = 0, transf = 0;
-
-  filtered.forEach(b => {
-    const pagadas = getCuotasPagadas(b);
-    cuotasCobradas += pagadas.length;
-    pagadas.forEach(c => {
-      montoCobrado += Number(c.monto) || 0;
-      if (c.metodo === 'Efectivo') efectivo += Number(c.monto) || 0;
-      if (c.metodo === 'Transferencia') transf += Number(c.monto) || 0;
-    });
+// ============ RESUMEN: tabla de bingos ============
+// Aplica los 4 filtros de la pantalla Resumen y devuelve los bingos que quedan.
+function getBingosFiltrados() {
+  const q = resSearch.trim().toLowerCase();
+  return BINGOS.filter(b => {
+    if (kpiFilterVendor !== 'todos' && b.vendedor !== kpiFilterVendor) return false;
+    if (kpiFilterStatus !== 'todos' && getBingoStatus(b) !== kpiFilterStatus) return false;
+    if (q && !String(b.comprador || '').toLowerCase().includes(q) && !String(b.nroBingo).includes(q)) return false;
+    return true;
   });
+}
 
-  const totalCuotas = totalBingos * TOTAL_CUOTAS;
-  const cuotasPend = totalCuotas - cuotasCobradas;
-  const montoPend = (totalBingos * TOTAL_BINGO) - montoCobrado;
+function sortResumen(col) {
+  if (resSort.col === col) resSort.dir = resSort.dir === 'asc' ? 'desc' : 'asc';
+  else { resSort.col = col; resSort.dir = col === 'nro' || col === 'cuotas' ? 'asc' : 'asc'; }
+  renderResumen();
+}
+
+function ordenarBingos(lista) {
+  const dir = resSort.dir === 'asc' ? 1 : -1;
+  const val = b => {
+    switch (resSort.col) {
+      case 'comprador': return String(b.comprador || '').toLowerCase();
+      case 'vendedor': return String(b.vendedor || '').toLowerCase();
+      case 'cuotas': return getCuotasPagadas(b).length;
+      default: return Number(b.nroBingo);
+    }
+  };
+  return lista.slice().sort((a, b) => {
+    const va = val(a), vb = val(b);
+    if (va < vb) return -1 * dir;
+    if (va > vb) return 1 * dir;
+    return Number(a.nroBingo) - Number(b.nroBingo); // desempate estable
+  });
+}
+
+function renderResumen() {
+  renderKpiFilters();
+
+  const filtrados = getBingosFiltrados();
+  const totalBingos = filtrados.length;
+  let montoCobrado = 0;
+  filtrados.forEach(b => { montoCobrado += getBingoMontoCobrado(b); });
+  const montoTotal = totalBingos * TOTAL_BINGO;
+  const pct = montoTotal > 0 ? Math.round(montoCobrado / montoTotal * 100) : 0;
 
   document.getElementById('kBingos').textContent = totalBingos;
-  document.getElementById('kCuotasCobradas').textContent = cuotasCobradas;
-  document.getElementById('kCuotasPend').textContent = cuotasPend;
   document.getElementById('kMontoCobrado').textContent = fmt(montoCobrado);
-  document.getElementById('kMontoPend').textContent = fmt(montoPend);
-  document.getElementById('kEfectivo').textContent = fmt(efectivo);
-  document.getElementById('kTransf').textContent = fmt(transf);
+  document.getElementById('kMontoTotal').textContent = fmt(montoTotal);
+  document.getElementById('resProgreso').style.width = pct + '%';
+  document.getElementById('resProgresoLabel').textContent =
+    totalBingos === 0 ? '' : pct + '% cobrado - falta ' + fmt(montoTotal - montoCobrado);
+
+  document.getElementById('resCount').textContent =
+    totalBingos === 1 ? '1 bingo' : totalBingos + ' bingos';
+
+  // Indicadores de orden en los encabezados
+  document.querySelectorAll('#tablaResumen .sort-ind').forEach(el => {
+    const c = el.dataset.col;
+    if (c === resSort.col) { el.textContent = resSort.dir === 'asc' ? '\u25B2' : '\u25BC'; el.classList.add('on'); }
+    else { el.textContent = '\u21C5'; el.classList.remove('on'); }
+  });
+
+  const tbody = document.getElementById('tablaResumenBody');
+  const vacio = document.getElementById('resumenVacio');
+  const tabla = document.querySelector('#sectionDashboard .tabla-scroll');
+
+  if (totalBingos === 0) {
+    tbody.innerHTML = '';
+    tabla.style.display = 'none';
+    vacio.innerHTML = '<div class="empty-state"><p>No hay bingos que coincidan con el filtro</p></div>';
+    return;
+  }
+  tabla.style.display = '';
+  vacio.innerHTML = '';
+
+  tbody.innerHTML = ordenarBingos(filtrados).map(b => {
+    const pagadas = getCuotasPagadas(b).length;
+    const estado = getBingoStatus(b);
+    const idx = BINGOS.indexOf(b);
+    return `<tr class="tabla-fila-click" onclick="irAlBingo(${idx})">
+      <td class="col-nro">#${b.nroBingo}</td>
+      <td class="col-comprador">${b.comprador || ''}</td>
+      <td>${b.vendedor || ''}</td>
+      <td class="num-col"><span class="cuotas-pill ${estado}">${pagadas}/${TOTAL_CUOTAS}</span></td>
+    </tr>`;
+  }).join('');
 }
+
+// Desde la tabla, saltar a la tarjeta del bingo en la pantalla del vendedor
+function irAlBingo(idx) {
+  const b = BINGOS[idx];
+  if (!b) return;
+  switchSection('vendor', b.vendedor);
+  renderTabs();
+  setTimeout(() => {
+    const card = document.getElementById('bingo-card-' + idx);
+    if (card) {
+      card.classList.add('expanded');
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 100);
+}
+
+// Mantengo el nombre viejo para no romper llamadas existentes
+function updateKPIs() { renderResumen(); }
 
 // Claves de los grupos de cobro que el usuario dejo desplegados.
 // Se guarda aparte del render para que sobreviva a renderAll().
 const cobrosExpandidos = new Set();
+// Ultimo listado de cobros renderizado, para poder exportarlo tal cual se ve.
+let cobrosVisibles = [];
 
 function toggleCobroGrupo(keyB64) {
   let key;
@@ -1145,8 +1328,14 @@ function resumirCuotas(nros) {
 
 function renderRecentPayments() {
   const container = document.getElementById('recentPayments');
-  let filtered = kpiFilterVendor === 'todos' ? BINGOS : BINGOS.filter(b => b.vendedor === kpiFilterVendor);
-  if (kpiFilterStatus !== 'todos') filtered = filtered.filter(b => getBingoStatus(b) === kpiFilterStatus);
+  renderKpiFilters();
+
+  const q = cobSearch.trim().toLowerCase();
+  const filtered = BINGOS.filter(b => {
+    if (cobFilterVendor !== 'todos' && b.vendedor !== cobFilterVendor) return false;
+    if (q && !String(b.comprador || '').toLowerCase().includes(q) && !String(b.nroBingo).includes(q)) return false;
+    return true;
+  });
 
   // Collect all payments with context
   let payments = [];
@@ -1206,10 +1395,26 @@ function renderRecentPayments() {
     return b.cuotas[b.cuotas.length - 1].cuota - a.cuotas[a.cuotas.length - 1].cuota;
   });
 
-  const recent = grupos.slice(0, 15);
+  // La pantalla Cobros muestra TODOS los cobros, no solo los ultimos.
+  const recent = grupos;
+  cobrosVisibles = grupos;
+
+  // KPIs de la pantalla Cobros
+  let totalCob = 0, efectivo = 0, transf = 0;
+  grupos.forEach(g => {
+    totalCob += g.total;
+    if (g.metodo === 'Efectivo') efectivo += g.total;
+    if (g.metodo === 'Transferencia') transf += g.total;
+  });
+  document.getElementById('kCobTransac').textContent = grupos.length;
+  document.getElementById('kCobTotal').textContent = fmt(totalCob);
+  document.getElementById('kEfectivo').textContent = fmt(efectivo);
+  document.getElementById('kTransf').textContent = fmt(transf);
+  document.getElementById('cobCount').textContent =
+    grupos.length === 1 ? '1 cobro' : grupos.length + ' cobros';
 
   if (recent.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No hay cobros registrados</p></div>';
+    container.innerHTML = '<div class="empty-state"><p>No hay cobros que coincidan con el filtro</p></div>';
     return;
   }
 
@@ -1246,11 +1451,236 @@ function renderRecentPayments() {
   }).join('');
 }
 
+// ============ EXPORTAR ============
+// Descripcion de los filtros activos, para el nombre del archivo y la placa.
+function descripcionFiltrosResumen() {
+  const p = [];
+  if (kpiFilterVendor !== 'todos') p.push('Vendedor: ' + kpiFilterVendor);
+  if (kpiFilterStatus !== 'todos') p.push('Estado: ' + kpiFilterStatus);
+  if (resSearch.trim()) p.push('Busqueda: "' + resSearch.trim() + '"');
+  return p.length ? p.join('  ·  ') : 'Todos los bingos';
+}
+
+function slugFiltros() {
+  const p = [];
+  if (kpiFilterVendor !== 'todos') p.push(kpiFilterVendor);
+  if (kpiFilterStatus !== 'todos') p.push(kpiFilterStatus);
+  return p.join('-').replace(/[^\w\-]+/g, '_');
+}
+
+function stampArchivo() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes());
+}
+
+// Excel en es-AR espera ; como separador, y el BOM evita que rompa los acentos.
+function armarCSV(headers, filas) {
+  const esc = v => {
+    const s = String(v == null ? '' : v);
+    return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return '﻿' + [headers].concat(filas).map(f => f.map(esc).join(';')).join('\r\n');
+}
+
+function descargar(blob, nombre) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function exportarResumenCSV() {
+  const filtrados = ordenarBingos(getBingosFiltrados());
+  if (!filtrados.length) { showToast('No hay nada para exportar'); return; }
+
+  const filas = filtrados.map(b => {
+    const cobrado = getBingoMontoCobrado(b);
+    return [
+      b.nroBingo,
+      b.comprador || '',
+      b.vendedor || '',
+      getCuotasPagadas(b).length + '/' + TOTAL_CUOTAS,
+      cobrado,
+      TOTAL_BINGO - cobrado,
+      getBingoStatus(b)
+    ];
+  });
+
+  const csv = armarCSV(
+    ['Nro Bingo', 'Comprador', 'Vendedor', 'Cuotas pagas', 'Cobrado', 'Pendiente', 'Estado'],
+    filas
+  );
+  const suf = slugFiltros();
+  descargar(new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
+    'bingos-' + (suf ? suf + '-' : '') + stampArchivo() + '.csv');
+  showToast(filtrados.length + ' bingos exportados');
+}
+
+function exportarCobrosCSV() {
+  if (!cobrosVisibles.length) { showToast('No hay nada para exportar'); return; }
+  const filas = [];
+  cobrosVisibles.forEach(g => {
+    g.cuotas.forEach(c => {
+      filas.push([
+        formatFecha(g.fecha), g.nroBingo, g.comprador || '', g.vendedor || '',
+        c.cuota, c.monto, g.metodo || ''
+      ]);
+    });
+  });
+  const csv = armarCSV(
+    ['Fecha', 'Nro Bingo', 'Comprador', 'Vendedor', 'Cuota', 'Monto', 'Metodo'],
+    filas
+  );
+  descargar(new Blob([csv], { type: 'text/csv;charset=utf-8;' }),
+    'cobros-' + stampArchivo() + '.csv');
+  showToast(filas.length + ' cuotas exportadas');
+}
+
+// Placa PNG dibujada a mano en canvas: sin librerias externas, funciona offline.
+function exportarResumenImagen() {
+  const filtrados = ordenarBingos(getBingosFiltrados());
+  if (!filtrados.length) { showToast('No hay nada para exportar'); return; }
+
+  const W = 900;
+  const PAD = 32;
+  const HEAD_H = 96;
+  const KPI_H = 92;
+  const FILTRO_H = 30;
+  const TH_H = 38;
+  const ROW_H = 34;
+  const FOOT_H = 44;
+  const H = HEAD_H + KPI_H + FILTRO_H + TH_H + filtrados.length * ROW_H + FOOT_H;
+
+  const escala = 2; // para que no se vea pixelado en pantallas retina
+  const cv = document.createElement('canvas');
+  cv.width = W * escala;
+  cv.height = H * escala;
+  const x = cv.getContext('2d');
+  x.scale(escala, escala);
+
+  const F = (peso, tam) => `${peso} ${tam}px "Segoe UI", Arial, sans-serif`;
+
+  // Fondo
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H);
+
+  // Encabezado
+  const grad = x.createLinearGradient(0, 0, W, HEAD_H);
+  grad.addColorStop(0, '#1a1a2e'); grad.addColorStop(1, '#16213e');
+  x.fillStyle = grad; x.fillRect(0, 0, W, HEAD_H);
+  x.fillStyle = '#ffffff'; x.font = F(700, 26); x.textBaseline = 'alphabetic';
+  x.fillText('Bingo del Club', PAD, 42);
+  x.fillStyle = 'rgba(255,255,255,0.65)'; x.font = F(400, 14);
+  x.fillText('Resumen de bingos', PAD, 66);
+  const ahora = new Date();
+  x.textAlign = 'right';
+  x.fillText(ahora.toLocaleDateString('es-AR') + '  ' +
+    ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }), W - PAD, 66);
+  x.textAlign = 'left';
+
+  // KPIs
+  let cobrado = 0;
+  filtrados.forEach(b => { cobrado += getBingoMontoCobrado(b); });
+  const total = filtrados.length * TOTAL_BINGO;
+  const kpis = [
+    { lab: 'Bingos', val: String(filtrados.length), col: '#2980b9' },
+    { lab: 'Cobrado', val: fmt(cobrado), col: '#27ae60' },
+    { lab: 'Total', val: fmt(total), col: '#495057' }
+  ];
+  const kw = (W - PAD * 2 - 16 * 2) / 3;
+  kpis.forEach((k, i) => {
+    const kx = PAD + i * (kw + 16), ky = HEAD_H + 16;
+    x.fillStyle = '#f6f7f9';
+    x.beginPath(); x.roundRect(kx, ky, kw, 62, 10); x.fill();
+    x.fillStyle = k.col; x.font = F(700, 22);
+    x.fillText(k.val, kx + 14, ky + 32);
+    x.fillStyle = '#8a9099'; x.font = F(600, 11);
+    x.fillText(k.lab.toUpperCase(), kx + 14, ky + 50);
+  });
+
+  // Linea de filtros
+  const fy = HEAD_H + KPI_H;
+  x.fillStyle = '#8a9099'; x.font = F(400, 12);
+  x.fillText(descripcionFiltrosResumen(), PAD, fy + 14);
+
+  // Encabezado de tabla
+  const ty = fy + FILTRO_H;
+  const cols = [
+    { lab: 'NRO', x: PAD, w: 70 },
+    { lab: 'COMPRADOR', x: PAD + 70, w: 320 },
+    { lab: 'VENDEDOR', x: PAD + 390, w: 240 },
+    { lab: 'CUOTAS', x: W - PAD, w: 0, der: true }
+  ];
+  x.fillStyle = '#f2f4f7'; x.fillRect(PAD, ty, W - PAD * 2, TH_H);
+  x.fillStyle = '#6b7280'; x.font = F(700, 11);
+  cols.forEach(c => {
+    x.textAlign = c.der ? 'right' : 'left';
+    x.fillText(c.lab, c.x, ty + 24);
+  });
+  x.textAlign = 'left';
+
+  // Filas
+  filtrados.forEach((b, i) => {
+    const ry = ty + TH_H + i * ROW_H;
+    if (i % 2 === 1) { x.fillStyle = '#fafbfc'; x.fillRect(PAD, ry, W - PAD * 2, ROW_H); }
+    x.fillStyle = '#eef0f3'; x.fillRect(PAD, ry + ROW_H - 1, W - PAD * 2, 1);
+
+    const pagadas = getCuotasPagadas(b).length;
+    const estado = getBingoStatus(b);
+    const colores = {
+      completo: ['#d5f5e3', '#1e8449'],
+      parcial: ['#fef3e2', '#b9770e'],
+      pendiente: ['#fdeaea', '#c0392b']
+    }[estado];
+
+    x.fillStyle = '#1a1a2e'; x.font = F(700, 13);
+    x.fillText('#' + b.nroBingo, cols[0].x, ry + 22);
+    x.fillStyle = '#2b2f36'; x.font = F(600, 13);
+    x.fillText(recortar(x, String(b.comprador || ''), cols[1].w - 12), cols[1].x, ry + 22);
+    x.fillStyle = '#6b7280'; x.font = F(400, 13);
+    x.fillText(recortar(x, String(b.vendedor || ''), cols[2].w - 12), cols[2].x, ry + 22);
+
+    // Pastilla de cuotas
+    const txt = pagadas + '/' + TOTAL_CUOTAS;
+    x.font = F(700, 12);
+    const tw = x.measureText(txt).width + 20;
+    const px = W - PAD - tw;
+    x.fillStyle = colores[0];
+    x.beginPath(); x.roundRect(px, ry + 7, tw, 20, 10); x.fill();
+    x.fillStyle = colores[1];
+    x.textAlign = 'center';
+    x.fillText(txt, px + tw / 2, ry + 21);
+    x.textAlign = 'left';
+  });
+
+  // Pie
+  const py = ty + TH_H + filtrados.length * ROW_H;
+  x.fillStyle = '#aab0b8'; x.font = F(400, 11);
+  x.fillText('Generado desde la app de bingo - ' + APP_VERSION, PAD, py + 26);
+
+  cv.toBlob(blob => {
+    const suf = slugFiltros();
+    descargar(blob, 'bingos-' + (suf ? suf + '-' : '') + stampArchivo() + '.png');
+    showToast('Imagen generada');
+  }, 'image/png');
+}
+
+// Corta el texto con puntos suspensivos si no entra en el ancho dado
+function recortar(ctx, txt, maxW) {
+  if (ctx.measureText(txt).width <= maxW) return txt;
+  let t = txt;
+  while (t.length > 1 && ctx.measureText(t + '...').width > maxW) t = t.slice(0, -1);
+  return t + '...';
+}
+
 // ============ RENDER ALL ============
 function renderAll() {
   renderTabs();
-  renderKpiFilters();
-  updateKPIs();
+  renderResumen();
   renderRecentPayments();
   if (currentSection === 'vendedores') renderVendedores();
   if (currentSection === 'vendor') renderVendorBingos();
