@@ -105,6 +105,7 @@ function doPost(e) {
     if (action === 'addVendedor') return addVendedor(data);
     if (action === 'deleteVendedor') return deleteVendedor(data);
     if (action === 'addBingo') return addBingo(data);
+    if (action === 'updateBingo') return updateBingo(data);
     if (action === 'deleteBingo') return deleteBingo(data);
     if (action === 'registrarCobro') return registrarCobro(data);
 
@@ -159,6 +160,59 @@ function addBingo(data) {
   const sheet = getOrCreateSheet(SHEET_BINGOS, ['Vendedor', 'NroBingo', 'Comprador']);
   sheet.appendRow([data.vendedor, data.nroBingo, data.comprador]);
   return jsonResponse({ status: 'ok', message: 'Bingo agregado' });
+}
+
+// Cambia el numero y/o el comprador de un bingo.
+// OJO: NroBingo es la clave con la que se unen las hojas Bingos y Cobros,
+// asi que hay que actualizar TAMBIEN todas las filas de Cobros del bingo,
+// sino los cobros ya registrados quedan huerfanos.
+// data: { vendedor, nroBingoOriginal, nroBingo, comprador }
+function updateBingo(data) {
+  const nroViejo = Number(data.nroBingoOriginal);
+  const nroNuevo = Number(data.nroBingo);
+  const comprador = data.comprador;
+
+  const bSheet = getOrCreateSheet(SHEET_BINGOS, ['Vendedor', 'NroBingo', 'Comprador']);
+  const bData = bSheet.getDataRange().getValues();
+
+  // Validacion server-side: el numero nuevo no puede estar tomado por OTRO bingo.
+  if (nroNuevo !== nroViejo) {
+    for (let i = 1; i < bData.length; i++) {
+      if (Number(bData[i][1]) === nroNuevo) {
+        return jsonResponse({ status: 'error', message: 'El numero ' + nroNuevo + ' ya esta asignado' });
+      }
+    }
+  }
+
+  let encontrado = false;
+  for (let i = 1; i < bData.length; i++) {
+    if (bData[i][0] === data.vendedor && Number(bData[i][1]) === nroViejo) {
+      bSheet.getRange(i + 1, 2).setValue(nroNuevo);
+      bSheet.getRange(i + 1, 3).setValue(comprador);
+      encontrado = true;
+    }
+  }
+  if (!encontrado) {
+    return jsonResponse({ status: 'error', message: 'No se encontro el bingo ' + nroViejo });
+  }
+
+  // Propagar a los cobros ya registrados
+  const cSheet = getOrCreateSheet(SHEET_COBROS, ['Vendedor', 'NroBingo', 'Comprador', 'NroCuota', 'Monto', 'MetodoPago', 'Fecha']);
+  const cData = cSheet.getDataRange().getValues();
+  let cobrosActualizados = 0;
+  for (let i = 1; i < cData.length; i++) {
+    if (cData[i][0] === data.vendedor && Number(cData[i][1]) === nroViejo) {
+      cSheet.getRange(i + 1, 2).setValue(nroNuevo);
+      cSheet.getRange(i + 1, 3).setValue(comprador);
+      cobrosActualizados++;
+    }
+  }
+
+  return jsonResponse({
+    status: 'ok',
+    message: 'Bingo actualizado',
+    cobrosActualizados: cobrosActualizados
+  });
 }
 
 function deleteBingo(data) {

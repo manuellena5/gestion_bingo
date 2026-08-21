@@ -277,6 +277,27 @@
   </div>
 </div>
 
+<!-- MODAL: Editar Bingo -->
+<div class="modal-overlay" id="modalEditarBingo" style="display:none;" onclick="if(event.target===this)closeModalEditar()">
+  <div class="modal">
+    <h3>Editar bingo</h3>
+    <p style="font-size:0.8rem; color:#888; margin-bottom:10px;" id="editSubtitle"></p>
+    <div class="form-group">
+      <label>Nombre del comprador</label>
+      <input type="text" id="ed_comprador" placeholder="Nombre completo">
+    </div>
+    <div class="form-group">
+      <label>Numero de bingo</label>
+      <input type="number" id="ed_numero" placeholder="Ej: 42" inputmode="numeric">
+    </div>
+    <div id="editAviso" style="display:none; background:#fef3e2; color:#a5670a; font-size:0.75rem; padding:8px 10px; border-radius:8px; margin-bottom:4px;"></div>
+    <div class="modal-buttons">
+      <button class="btn btn-danger" onclick="closeModalEditar()">Cancelar</button>
+      <button class="btn btn-primary" id="btnEditarBingo" onclick="submitEditarBingo()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Registrar Cobro -->
 <div class="modal-overlay" id="modalCobro" style="display:none;" onclick="if(event.target===this)closeModalCobro()">
   <div class="modal">
@@ -326,7 +347,7 @@
 
 <script>
 // ============ CONSTANTS ============
-const APP_VERSION = 'v11';
+const APP_VERSION = 'v12';
 const CUOTA_VALOR = 10000;
 const TOTAL_CUOTAS = 10;
 const TOTAL_BINGO = CUOTA_VALOR * TOTAL_CUOTAS;
@@ -659,6 +680,20 @@ function renderVendedores() {
 // Candado contra doble guardado: mientras se esta enviando a Sheets el boton
 // queda deshabilitado y un segundo click no hace nada.
 let guardandoBingo = false;
+let editandoBingoIdx = null;
+let guardandoEdicion = false;
+
+// Validacion compartida por "nuevo bingo" y "editar bingo".
+// excluirIdx: indice del bingo que se esta editando, para no chocar consigo mismo.
+// Devuelve el mensaje de error, o null si esta todo bien.
+function validarNumeroBingo(numero, excluirIdx) {
+  const n = Number(numero);
+  if (!numero && numero !== 0) return 'Ingresa el numero de bingo';
+  if (!Number.isInteger(n) || n <= 0) return 'El numero de bingo tiene que ser un entero positivo';
+  const choca = BINGOS.some((b, i) => i !== excluirIdx && Number(b.nroBingo) === n);
+  if (choca) return 'El numero ' + n + ' ya esta asignado a otro bingo';
+  return null;
+}
 
 function openModalBingo() {
   document.getElementById('nb_comprador').value = '';
@@ -684,10 +719,8 @@ async function submitNuevoBingo() {
   if (!numero) { showToast('Ingresa el numero de bingo'); return; }
   if (!currentVendor) { showToast('Selecciona un vendedor'); return; }
 
-  // Check duplicate bingo number
-  if (BINGOS.find(b => b.nroBingo == numero)) {
-    showToast('Ese numero de bingo ya esta asignado'); return;
-  }
+  const err = validarNumeroBingo(numero);
+  if (err) { showToast(err); return; }
 
   // Bloquear antes de cualquier await
   guardandoBingo = true;
@@ -717,6 +750,98 @@ async function submitNuevoBingo() {
     btn.textContent = textoOriginal;
     btn.disabled = false;
     guardandoBingo = false;
+  }
+}
+
+// ============ EDITAR BINGO ============
+function openEditarBingo(idx) {
+  const bingo = BINGOS[idx];
+  if (!bingo) return;
+  editandoBingoIdx = idx;
+  guardandoEdicion = false;
+
+  document.getElementById('editSubtitle').textContent =
+    'Bingo #' + bingo.nroBingo + ' - ' + bingo.vendedor;
+  document.getElementById('ed_comprador').value = bingo.comprador || '';
+  document.getElementById('ed_numero').value = bingo.nroBingo;
+
+  // Avisar si ya tiene cobros: el cambio se propaga a esas filas de la planilla.
+  const cobros = getCuotasPagadas(bingo).length;
+  const aviso = document.getElementById('editAviso');
+  if (cobros > 0) {
+    aviso.textContent = 'Este bingo tiene ' + cobros + ' cuota(s) cobrada(s). ' +
+      'Al cambiar el numero o el nombre tambien se actualizan esos cobros en la planilla.';
+    aviso.style.display = 'block';
+  } else {
+    aviso.style.display = 'none';
+  }
+
+  document.getElementById('btnEditarBingo').disabled = false;
+  document.getElementById('modalEditarBingo').style.display = 'flex';
+  setTimeout(() => document.getElementById('ed_numero').focus(), 100);
+}
+
+function closeModalEditar() {
+  document.getElementById('modalEditarBingo').style.display = 'none';
+  document.getElementById('btnEditarBingo').disabled = false;
+  editandoBingoIdx = null;
+  guardandoEdicion = false;
+}
+
+async function submitEditarBingo() {
+  if (guardandoEdicion) return;
+  const idx = editandoBingoIdx;
+  const bingo = BINGOS[idx];
+  if (!bingo) { closeModalEditar(); return; }
+
+  const comprador = document.getElementById('ed_comprador').value.trim();
+  const numero = document.getElementById('ed_numero').value.trim();
+
+  if (!comprador) { showToast('Ingresa el nombre del comprador'); return; }
+  const err = validarNumeroBingo(numero, idx);
+  if (err) { showToast(err); return; }
+
+  const nroNuevo = Number(numero);
+  const nroViejo = Number(bingo.nroBingo);
+
+  // Sin cambios: no molestamos al backend
+  if (nroNuevo === nroViejo && comprador === bingo.comprador) {
+    closeModalEditar();
+    return;
+  }
+
+  guardandoEdicion = true;
+  const btn = document.getElementById('btnEditarBingo');
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Guardando...';
+
+  try {
+    await postToSheets({
+      action: 'updateBingo',
+      vendedor: bingo.vendedor,
+      nroBingoOriginal: nroViejo,
+      nroBingo: nroNuevo,
+      comprador: comprador
+    });
+
+    bingo.nroBingo = nroNuevo;
+    bingo.comprador = comprador;
+    // Las claves de grupos desplegados llevan el nro viejo: se descartan
+    // para que no queden colgadas apuntando a un bingo que ya no existe.
+    cobrosExpandidos.clear();
+
+    saveLocal();
+    closeModalEditar();
+    renderAll();
+    showToast('Bingo actualizado');
+  } catch (e) {
+    console.error('Error al editar bingo:', e);
+    showToast('Error al guardar. Reintenta.');
+  } finally {
+    btn.textContent = textoOriginal;
+    btn.disabled = false;
+    guardandoEdicion = false;
   }
 }
 
@@ -769,6 +894,7 @@ function renderVendorBingos() {
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           ${status !== 'completo' ? `<button class="btn btn-primary btn-sm" onclick="openCobro(${realIdx})">Registrar cobro</button>` : ''}
           ${status !== 'completo' ? `<button class="btn btn-warning btn-sm" onclick="openCobroTotal(${realIdx})">Cobrar todo (${fmt(pendiente)})</button>` : ''}
+          <button class="btn btn-blue btn-sm" onclick="openEditarBingo(${realIdx})">Editar</button>
           <button class="btn btn-danger btn-sm" onclick="deleteBingo(${realIdx})">Eliminar</button>
         </div>
         ${pagadas > 0 ? renderCobrosHistory(b) : ''}
