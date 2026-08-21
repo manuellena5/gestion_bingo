@@ -356,6 +356,23 @@
   </div>
 </div>
 
+<!-- MODAL: Editar Vendedor -->
+<div class="modal-overlay" id="modalEditarVendedor" style="display:none;" onclick="if(event.target===this)closeModalEditarVendedor()">
+  <div class="modal">
+    <h3>Editar vendedor</h3>
+    <p style="font-size:0.8rem; color:#888; margin-bottom:10px;" id="edVendSubtitle"></p>
+    <div class="form-group">
+      <label>Nombre</label>
+      <input type="text" id="ed_vend_nombre" placeholder="Nombre del vendedor">
+    </div>
+    <div id="edVendAviso" style="display:none; background:#eaf3fb; color:#2a6496; font-size:0.75rem; padding:8px 10px; border-radius:8px; margin-bottom:4px;"></div>
+    <div class="modal-buttons">
+      <button class="btn btn-danger" onclick="closeModalEditarVendedor()">Cancelar</button>
+      <button class="btn btn-primary" id="btnEditarVendedor" onclick="submitEditarVendedor()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: Editar Bingo -->
 <div class="modal-overlay" id="modalEditarBingo" style="display:none;" onclick="if(event.target===this)closeModalEditar()">
   <div class="modal">
@@ -426,7 +443,7 @@
 
 <script>
 // ============ CONSTANTS ============
-const APP_VERSION = 'v14';
+const APP_VERSION = 'v15';
 const CUOTA_VALOR = 10000;
 const TOTAL_CUOTAS = 10;
 const TOTAL_BINGO = CUOTA_VALOR * TOTAL_CUOTAS;
@@ -435,7 +452,7 @@ const TOTAL_BINGO = CUOTA_VALOR * TOTAL_CUOTAS;
 let VENDEDORES = []; // [{nombre: 'Juan'}]
 let BINGOS = [];     // [{vendedor, nroBingo, comprador, cuotas: [{nro, monto, metodo, fecha}]}]
 let currentSection = 'dashboard';
-let currentVendor = null;
+let currentVendor = null; // ahora guarda el ID del vendedor (V001), no el nombre
 let kpiFilterVendor = 'todos';
 // URL fija del Apps Script. Va hardcodeada para que nadie tenga que configurarla a mano.
 // Si alguna vez se re-deploya el script, se cambia SOLO aca (y se sube APP_VERSION).
@@ -458,6 +475,51 @@ let cobSearch = '';
 
 // ============ HELPERS ============
 function fmt(n) { return '$' + Number(n).toLocaleString('es-AR'); }
+
+// ============ IDs ============
+// El ID es el vinculo real entre vendedores, bingos y cobros. El nombre que se
+// guarda al lado es una copia legible: al renombrar, se reescribe en cascada
+// buscando por ID. Por eso cambiar el nombre de un vendedor no pierde nada.
+function proximoId(existentes, prefijo, padding) {
+  let max = 0;
+  existentes.forEach(id => {
+    const m = String(id || '').match(new RegExp('^' + prefijo + '(\\d+)$'));
+    if (m) max = Math.max(max, Number(m[1]));
+  });
+  return prefijo + String(max + 1).padStart(padding, '0');
+}
+function nuevoIdVendedor() { return proximoId(VENDEDORES.map(v => v.id), 'V', 3); }
+function nuevoIdBingo() { return proximoId(BINGOS.map(b => b.id), 'B', 4); }
+
+function getVendedor(id) { return VENDEDORES.find(v => v.id === id) || null; }
+function nombreVendedor(id) {
+  const v = getVendedor(id);
+  return v ? v.nombre : '';
+}
+// Los bingos se filtran por idVendedor. El fallback por nombre cubre el rato
+// entre que se instala esta version y la primera recarga desde la planilla.
+function esDelVendedor(bingo, idVendedor) {
+  if (bingo.idVendedor) return bingo.idVendedor === idVendedor;
+  return bingo.vendedor === nombreVendedor(idVendedor);
+}
+function bingosDe(idVendedor) { return BINGOS.filter(b => esDelVendedor(b, idVendedor)); }
+
+// Le pone ID a lo que venga sin ID (planilla vieja, o datos guardados de una
+// version anterior de la app). Se corre despues de cargar.
+function backfillIdsLocal() {
+  const idsV = VENDEDORES.map(v => v.id).filter(Boolean);
+  VENDEDORES.forEach(v => {
+    if (!v.id) { v.id = proximoId(idsV, 'V', 3); idsV.push(v.id); }
+  });
+  const idsB = BINGOS.map(b => b.id).filter(Boolean);
+  BINGOS.forEach(b => {
+    if (!b.id) { b.id = proximoId(idsB, 'B', 4); idsB.push(b.id); }
+    if (!b.idVendedor) {
+      const v = VENDEDORES.find(x => x.nombre === b.vendedor);
+      if (v) b.idVendedor = v.id;
+    }
+  });
+}
 
 // Devuelve un Date valido a partir de cualquier formato que haya quedado guardado:
 //  - ISO nuevo ("2026-08-19T14:32:10.123Z") -> con hora
@@ -590,16 +652,16 @@ function switchSection(section, vendor) {
 function renderTabs() {
   const container = document.getElementById('mainTabs');
   const vendorCount = {};
-  BINGOS.forEach(b => { vendorCount[b.vendedor] = (vendorCount[b.vendedor] || 0) + 1; });
+  VENDEDORES.forEach(v => { vendorCount[v.id] = bingosDe(v.id).length; });
 
   let html = `<div class="main-tab ${currentSection === 'dashboard' ? 'active' : ''}" data-section="dashboard" onclick="switchSection('dashboard')">Resumen</div>`;
   html += `<div class="main-tab ${currentSection === 'cobros' ? 'active' : ''}" data-section="cobros" onclick="switchSection('cobros')">Cobros</div>`;
   html += `<div class="main-tab ${currentSection === 'vendedores' ? 'active' : ''}" data-section="vendedores" onclick="switchSection('vendedores')">Vendedores</div>`;
 
   VENDEDORES.forEach(v => {
-    const count = vendorCount[v.nombre] || 0;
-    const isActive = currentSection === 'vendor' && currentVendor === v.nombre;
-    html += `<div class="main-tab ${isActive ? 'active' : ''}" data-vendor="${v.nombre}" onclick="switchSection('vendor','${v.nombre.replace(/'/g, "\\'")}')">${v.nombre} <span class="badge">${count}</span></div>`;
+    const count = vendorCount[v.id] || 0;
+    const isActive = currentSection === 'vendor' && currentVendor === v.id;
+    html += `<div class="main-tab ${isActive ? 'active' : ''}" data-vendor="${v.id}" onclick="switchSection('vendor','${v.id}')">${v.nombre} <span class="badge">${count}</span></div>`;
   });
 
   container.innerHTML = html;
@@ -663,6 +725,14 @@ async function loadFromSheets() {
     if (data.status === 'ok') {
       VENDEDORES = data.vendedores || [];
       BINGOS = data.bingos || [];
+      backfillIdsLocal(); // red de seguridad si el Apps Script viejo no manda IDs
+
+      // Si un filtro o la solapa abierta apuntaban a un vendedor que ya no esta,
+      // se vuelve a un estado valido en vez de quedar en una pantalla vacia.
+      if (kpiFilterVendor !== 'todos' && !getVendedor(kpiFilterVendor)) kpiFilterVendor = 'todos';
+      if (cobFilterVendor !== 'todos' && !getVendedor(cobFilterVendor)) cobFilterVendor = 'todos';
+      if (currentSection === 'vendor' && !getVendedor(currentVendor)) { switchSection('vendedores'); }
+
       saveLocal();
       renderAll();
       showToast('Datos actualizados');
@@ -705,6 +775,7 @@ function saveLocal() {
 function loadLocal() {
   try { VENDEDORES = JSON.parse(localStorage.getItem('bingo_vendedores') || '[]'); } catch(e) { VENDEDORES = []; }
   try { BINGOS = JSON.parse(localStorage.getItem('bingo_bingos') || '[]'); } catch(e) { BINGOS = []; }
+  backfillIdsLocal();
 }
 
 // ============ VENDEDORES ============
@@ -716,8 +787,9 @@ async function addVendedor() {
     showToast('Ese vendedor ya existe'); return;
   }
 
-  const ok = await postToSheets({ action: 'addVendedor', nombre });
-  VENDEDORES.push({ nombre });
+  const idVendedor = nuevoIdVendedor();
+  const ok = await postToSheets({ action: 'addVendedor', idVendedor, nombre });
+  VENDEDORES.push({ id: idVendedor, nombre });
   saveLocal();
   renderAll();
   input.value = '';
@@ -727,9 +799,10 @@ async function addVendedor() {
   showToast('Vendedor agregado');
 }
 
-function openDeleteVendor(nombre) {
-  pendingDeleteVendor = nombre;
-  const bingosCount = BINGOS.filter(b => b.vendedor === nombre).length;
+function openDeleteVendor(idVendedor) {
+  pendingDeleteVendor = idVendedor;
+  const nombre = nombreVendedor(idVendedor);
+  const bingosCount = bingosDe(idVendedor).length;
   document.getElementById('deleteMsg').textContent = bingosCount > 0
     ? `"${nombre}" tiene ${bingosCount} bingo(s) asignado(s). Se eliminara el vendedor y todos sus bingos.`
     : `Eliminar a "${nombre}"?`;
@@ -743,13 +816,19 @@ function closeModalDelete() {
 
 async function confirmDeleteVendedor() {
   if (!pendingDeleteVendor) return;
-  const nombre = pendingDeleteVendor;
-  await postToSheets({ action: 'deleteVendedor', nombre });
-  VENDEDORES = VENDEDORES.filter(v => v.nombre !== nombre);
-  BINGOS = BINGOS.filter(b => b.vendedor !== nombre);
+  const idVendedor = pendingDeleteVendor;
+  const nombre = nombreVendedor(idVendedor);
+  // Se manda tambien el nombre: sirve de respaldo si la planilla todavia
+  // tuviera filas viejas sin IdVendedor.
+  await postToSheets({ action: 'deleteVendedor', idVendedor, nombre });
+  const suyos = bingosDe(idVendedor);
+  VENDEDORES = VENDEDORES.filter(v => v.id !== idVendedor);
+  BINGOS = BINGOS.filter(b => suyos.indexOf(b) === -1);
+  if (kpiFilterVendor === idVendedor) kpiFilterVendor = 'todos';
+  if (cobFilterVendor === idVendedor) cobFilterVendor = 'todos';
   saveLocal();
   closeModalDelete();
-  if (currentVendor === nombre) switchSection('vendedores');
+  if (currentVendor === idVendedor) switchSection('vendedores');
   renderAll();
   showToast('Vendedor eliminado');
 }
@@ -761,17 +840,92 @@ function renderVendedores() {
     return;
   }
   container.innerHTML = VENDEDORES.map(v => {
-    const count = BINGOS.filter(b => b.vendedor === v.nombre).length;
-    const cobrado = BINGOS.filter(b => b.vendedor === v.nombre).reduce((s, b) => s + getBingoMontoCobrado(b), 0);
+    const suyos = bingosDe(v.id);
+    const cobrado = suyos.reduce((s, b) => s + getBingoMontoCobrado(b), 0);
     return `<div class="vendedor-item">
       <div class="icon vendedor" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e8f4fd;color:#3498db;font-size:1rem;">&#128100;</div>
       <div style="flex:1;">
-        <div class="v-name">${v.nombre}</div>
-        <div class="v-count">${count} bingo(s) - Cobrado: ${fmt(cobrado)}</div>
+        <div class="v-name">${v.nombre} <span style="font-size:0.65rem;color:#bbb;font-weight:400;">${v.id || ''}</span></div>
+        <div class="v-count">${suyos.length} bingo(s) - Cobrado: ${fmt(cobrado)}</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="openDeleteVendor('${v.nombre.replace(/'/g, "\\'")}')">&#128465;</button>
+      <button class="btn btn-blue btn-sm" onclick="openEditarVendedor('${v.id}')">&#9998;</button>
+      <button class="btn btn-danger btn-sm" onclick="openDeleteVendor('${v.id}')">&#128465;</button>
     </div>`;
   }).join('');
+}
+
+// ============ EDITAR VENDEDOR ============
+let editandoVendedorId = null;
+let guardandoVendedor = false;
+
+function openEditarVendedor(idVendedor) {
+  const v = getVendedor(idVendedor);
+  if (!v) return;
+  editandoVendedorId = idVendedor;
+  guardandoVendedor = false;
+
+  document.getElementById('edVendSubtitle').textContent = 'ID ' + v.id;
+  document.getElementById('ed_vend_nombre').value = v.nombre || '';
+
+  const suyos = bingosDe(idVendedor);
+  const cobros = suyos.reduce((s, b) => s + getCuotasPagadas(b).length, 0);
+  const aviso = document.getElementById('edVendAviso');
+  if (suyos.length > 0) {
+    aviso.innerHTML = 'Tiene <strong>' + suyos.length + ' bingo(s)</strong> y <strong>' + cobros +
+      ' cuota(s) cobrada(s)</strong>. El vinculo es por ID, asi que cambiar el nombre no pierde nada: ' +
+      'se reescribe el nombre en todos lados.';
+    aviso.style.display = 'block';
+  } else {
+    aviso.style.display = 'none';
+  }
+
+  document.getElementById('btnEditarVendedor').disabled = false;
+  document.getElementById('modalEditarVendedor').style.display = 'flex';
+  setTimeout(() => document.getElementById('ed_vend_nombre').focus(), 100);
+}
+
+function closeModalEditarVendedor() {
+  document.getElementById('modalEditarVendedor').style.display = 'none';
+  document.getElementById('btnEditarVendedor').disabled = false;
+  editandoVendedorId = null;
+  guardandoVendedor = false;
+}
+
+async function submitEditarVendedor() {
+  if (guardandoVendedor) return;
+  const id = editandoVendedorId;
+  const v = getVendedor(id);
+  if (!v) { closeModalEditarVendedor(); return; }
+
+  const nombre = document.getElementById('ed_vend_nombre').value.trim();
+  if (!nombre) { showToast('Ingresa el nombre'); return; }
+  const choca = VENDEDORES.some(o => o.id !== id && o.nombre.toLowerCase() === nombre.toLowerCase());
+  if (choca) { showToast('Ya existe un vendedor con ese nombre'); return; }
+  if (nombre === v.nombre) { closeModalEditarVendedor(); return; }
+
+  guardandoVendedor = true;
+  const btn = document.getElementById('btnEditarVendedor');
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Guardando...';
+
+  try {
+    await postToSheets({ action: 'updateVendedor', idVendedor: id, nombre });
+    v.nombre = nombre;
+    // Cascada local de la copia legible del nombre, igual que hace la planilla
+    bingosDe(id).forEach(b => { b.vendedor = nombre; b.idVendedor = id; });
+    saveLocal();
+    closeModalEditarVendedor();
+    renderAll();
+    showToast('Vendedor actualizado');
+  } catch (e) {
+    console.error('Error al editar vendedor:', e);
+    showToast('Error al guardar. Reintenta.');
+  } finally {
+    btn.textContent = textoOriginal;
+    btn.disabled = false;
+    guardandoVendedor = false;
+  }
 }
 
 // ============ BINGOS ============
@@ -828,14 +982,16 @@ async function submitNuevoBingo() {
   btn.textContent = 'Guardando...';
 
   const bingo = {
-    vendedor: currentVendor,
+    id: nuevoIdBingo(),
+    idVendedor: currentVendor,
+    vendedor: nombreVendedor(currentVendor),
     nroBingo: Number(numero),
     comprador,
     cuotas: []
   };
 
   try {
-    await postToSheets({ action: 'addBingo', ...bingo });
+    await postToSheets({ action: 'addBingo', idBingo: bingo.id, idVendedor: bingo.idVendedor, vendedor: bingo.vendedor, nroBingo: bingo.nroBingo, comprador: bingo.comprador });
     BINGOS.push(bingo);
     saveLocal();
     closeModalBingo();
@@ -859,7 +1015,7 @@ function openEditarBingo(idx) {
   guardandoEdicion = false;
 
   document.getElementById('editSubtitle').textContent =
-    'Bingo #' + bingo.nroBingo + ' - ' + bingo.vendedor;
+    'Bingo #' + bingo.nroBingo + ' - ' + (nombreVendedor(bingo.idVendedor) || bingo.vendedor);
   document.getElementById('ed_comprador').value = bingo.comprador || '';
   document.getElementById('ed_numero').value = bingo.nroBingo;
 
@@ -917,6 +1073,7 @@ async function submitEditarBingo() {
   try {
     await postToSheets({
       action: 'updateBingo',
+      idBingo: bingo.id,
       vendedor: bingo.vendedor,
       nroBingoOriginal: nroViejo,
       nroBingo: nroNuevo,
@@ -948,13 +1105,13 @@ function renderVendorBingos() {
   const search = (document.getElementById('vendorSearch')?.value || '').toLowerCase();
 
   const bingos = BINGOS.filter(b => {
-    if (b.vendedor !== currentVendor) return false;
+    if (!esDelVendedor(b, currentVendor)) return false;
     if (search && !b.comprador.toLowerCase().includes(search) && !String(b.nroBingo).includes(search)) return false;
     return true;
   });
 
   if (bingos.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="icon">&#127922;</div><p>${BINGOS.filter(b => b.vendedor === currentVendor).length === 0 ? 'No hay bingos. Toca + para agregar.' : 'Sin resultados'}</p></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="icon">&#127922;</div><p>${bingosDe(currentVendor).length === 0 ? 'No hay bingos. Toca + para agregar.' : 'Sin resultados'}</p></div>`;
     return;
   }
 
@@ -1127,6 +1284,8 @@ function submitCobro() {
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({
         action: 'registrarCobro',
+        idBingo: bingo.id,
+        idVendedor: bingo.idVendedor,
         vendedor: bingo.vendedor,
         nroBingo: bingo.nroBingo,
         comprador: bingo.comprador,
@@ -1143,7 +1302,7 @@ function submitCobro() {
 async function deleteBingo(idx) {
   const bingo = BINGOS[idx];
   if (!confirm(`Eliminar bingo #${bingo.nroBingo} de ${bingo.comprador}?`)) return;
-  await postToSheets({ action: 'deleteBingo', vendedor: bingo.vendedor, nroBingo: bingo.nroBingo });
+  await postToSheets({ action: 'deleteBingo', idBingo: bingo.id, vendedor: bingo.vendedor, nroBingo: bingo.nroBingo });
   BINGOS.splice(idx, 1);
   saveLocal();
   renderAll();
@@ -1161,7 +1320,8 @@ function renderChips(containerId, opciones, actual, onclickFn) {
 }
 
 function opcionesVendedor() {
-  return [{ val: 'todos', lab: 'Todos' }].concat(VENDEDORES.map(v => ({ val: v.nombre, lab: v.nombre })));
+  // El valor del chip es el ID; lo que se ve es el nombre.
+  return [{ val: 'todos', lab: 'Todos' }].concat(VENDEDORES.map(v => ({ val: v.id, lab: v.nombre })));
 }
 const OPC_ESTADO = [
   { val: 'todos', lab: 'Todos' },
@@ -1197,7 +1357,7 @@ function renderKpiFilters() {
 function getBingosFiltrados() {
   const q = resSearch.trim().toLowerCase();
   return BINGOS.filter(b => {
-    if (kpiFilterVendor !== 'todos' && b.vendedor !== kpiFilterVendor) return false;
+    if (kpiFilterVendor !== 'todos' && !esDelVendedor(b, kpiFilterVendor)) return false;
     if (kpiFilterStatus !== 'todos' && getBingoStatus(b) !== kpiFilterStatus) return false;
     if (q && !String(b.comprador || '').toLowerCase().includes(q) && !String(b.nroBingo).includes(q)) return false;
     return true;
@@ -1285,7 +1445,7 @@ function renderResumen() {
 function irAlBingo(idx) {
   const b = BINGOS[idx];
   if (!b) return;
-  switchSection('vendor', b.vendedor);
+  switchSection('vendor', b.idVendedor);
   renderTabs();
   setTimeout(() => {
     const card = document.getElementById('bingo-card-' + idx);
@@ -1332,7 +1492,7 @@ function renderRecentPayments() {
 
   const q = cobSearch.trim().toLowerCase();
   const filtered = BINGOS.filter(b => {
-    if (cobFilterVendor !== 'todos' && b.vendedor !== cobFilterVendor) return false;
+    if (cobFilterVendor !== 'todos' && !esDelVendedor(b, cobFilterVendor)) return false;
     if (q && !String(b.comprador || '').toLowerCase().includes(q) && !String(b.nroBingo).includes(q)) return false;
     return true;
   });
@@ -1455,7 +1615,7 @@ function renderRecentPayments() {
 // Descripcion de los filtros activos, para el nombre del archivo y la placa.
 function descripcionFiltrosResumen() {
   const p = [];
-  if (kpiFilterVendor !== 'todos') p.push('Vendedor: ' + kpiFilterVendor);
+  if (kpiFilterVendor !== 'todos') p.push('Vendedor: ' + nombreVendedor(kpiFilterVendor));
   if (kpiFilterStatus !== 'todos') p.push('Estado: ' + kpiFilterStatus);
   if (resSearch.trim()) p.push('Busqueda: "' + resSearch.trim() + '"');
   return p.length ? p.join('  ·  ') : 'Todos los bingos';
@@ -1463,7 +1623,7 @@ function descripcionFiltrosResumen() {
 
 function slugFiltros() {
   const p = [];
-  if (kpiFilterVendor !== 'todos') p.push(kpiFilterVendor);
+  if (kpiFilterVendor !== 'todos') p.push(nombreVendedor(kpiFilterVendor));
   if (kpiFilterStatus !== 'todos') p.push(kpiFilterStatus);
   return p.join('-').replace(/[^\w\-]+/g, '_');
 }
