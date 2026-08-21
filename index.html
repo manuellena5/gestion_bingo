@@ -237,7 +237,7 @@
 <div id="configPanel" class="config-panel" style="display:none;">
   <p><strong>Configuracion:</strong> <span id="configHint">Pega la URL de tu Google Apps Script Web App</span></p>
   <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/...../exec">
-  <br>
+  <br id="configBr">
   <button class="btn btn-primary btn-sm" id="btnSaveConfig" onclick="saveConfig()" style="margin-top:8px;">Guardar y Conectar</button>
   <button class="btn btn-blue btn-sm" id="btnReloadConfig" onclick="loadFromSheets()" style="margin-top:8px; display:none;">Recargar datos</button>
   <div id="configStatus"></div>
@@ -443,7 +443,7 @@
 
 <script>
 // ============ CONSTANTS ============
-const APP_VERSION = 'v15';
+const APP_VERSION = 'v16';
 const CUOTA_VALOR = 10000;
 const TOTAL_CUOTAS = 10;
 const TOTAL_BINGO = CUOTA_VALOR * TOTAL_CUOTAS;
@@ -475,6 +475,11 @@ let cobSearch = '';
 
 // ============ HELPERS ============
 function fmt(n) { return '$' + Number(n).toLocaleString('es-AR'); }
+
+// "1 bingo" / "3 bingos" — para no escribir "bingo(s)" en pantalla
+function plural(n, singular, pluralForma) {
+  return n + ' ' + (n === 1 ? singular : (pluralForma || singular + 's'));
+}
 
 // ============ IDs ============
 // El ID es el vinculo real entre vendedores, bingos y cobros. El nombre que se
@@ -675,14 +680,19 @@ function checkConfig() {
 
   // Con la URL hardcodeada el panel pasa a ser solo informativo.
   if (GAS_URL) {
+    // La URL es un detalle tecnico: no se muestra. Solo queda el estado y el
+    // boton de recargar, que es lo unico que el usuario puede necesitar.
     urlInput.value = GAS_URL;
     urlInput.readOnly = true;
-    urlInput.style.opacity = '0.7';
-    document.getElementById('configHint').textContent = 'Conexion ya configurada, no hay que tocar nada.';
+    urlInput.style.display = 'none';
+    const br = document.getElementById('configBr');
+    if (br) br.style.display = 'none';
+    document.getElementById('configHint').textContent = '';
+    document.querySelector('#configPanel p').style.display = 'none';
     document.getElementById('btnSaveConfig').style.display = 'none';
     document.getElementById('btnReloadConfig').style.display = 'inline-flex';
     panel.classList.add('connected');
-    statusDiv.innerHTML = '<div class="status-line ok">Conectado a Google Sheets</div>';
+    statusDiv.innerHTML = '<div class="status-line ok">Conectado</div>';
     return;
   }
 
@@ -741,14 +751,14 @@ async function loadFromSheets() {
     console.error('Error loading:', e);
     loadLocal();
     renderAll();
-    showToast('Error al conectar. Datos locales.');
+    showToast('Sin conexion. Estas viendo los ultimos datos guardados.');
   } finally {
     showLoading(false);
   }
 }
 
 async function postToSheets(payload, silent = false) {
-  if (!SCRIPT_URL) { if (!silent) showToast('Configura la URL primero'); return false; }
+  if (!SCRIPT_URL) { if (!silent) showToast('Sin conexion'); return false; }
   try {
     if (!silent) showLoading(true);
     await fetch(SCRIPT_URL, {
@@ -760,7 +770,7 @@ async function postToSheets(payload, silent = false) {
     return true;
   } catch (e) {
     console.error('Error posting:', e);
-    if (!silent) showToast('Error al guardar');
+    if (!silent) showToast('No se pudo guardar. Revisa la conexion.');
     return false;
   } finally {
     if (!silent) showLoading(false);
@@ -804,7 +814,7 @@ function openDeleteVendor(idVendedor) {
   const nombre = nombreVendedor(idVendedor);
   const bingosCount = bingosDe(idVendedor).length;
   document.getElementById('deleteMsg').textContent = bingosCount > 0
-    ? `"${nombre}" tiene ${bingosCount} bingo(s) asignado(s). Se eliminara el vendedor y todos sus bingos.`
+    ? `"${nombre}" tiene ${plural(bingosCount, 'bingo')}. Se borran junto con el vendedor.`
     : `Eliminar a "${nombre}"?`;
   document.getElementById('modalDelete').style.display = 'flex';
 }
@@ -845,8 +855,8 @@ function renderVendedores() {
     return `<div class="vendedor-item">
       <div class="icon vendedor" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e8f4fd;color:#3498db;font-size:1rem;">&#128100;</div>
       <div style="flex:1;">
-        <div class="v-name">${v.nombre} <span style="font-size:0.65rem;color:#bbb;font-weight:400;">${v.id || ''}</span></div>
-        <div class="v-count">${suyos.length} bingo(s) - Cobrado: ${fmt(cobrado)}</div>
+        <div class="v-name">${v.nombre}</div>
+        <div class="v-count">${plural(suyos.length, 'bingo')} - Cobrado: ${fmt(cobrado)}</div>
       </div>
       <button class="btn btn-blue btn-sm" onclick="openEditarVendedor('${v.id}')">&#9998;</button>
       <button class="btn btn-danger btn-sm" onclick="openDeleteVendor('${v.id}')">&#128465;</button>
@@ -864,16 +874,13 @@ function openEditarVendedor(idVendedor) {
   editandoVendedorId = idVendedor;
   guardandoVendedor = false;
 
-  document.getElementById('edVendSubtitle').textContent = 'ID ' + v.id;
+  const suyos = bingosDe(idVendedor);
+  document.getElementById('edVendSubtitle').textContent = plural(suyos.length, 'bingo') + ' a su nombre';
   document.getElementById('ed_vend_nombre').value = v.nombre || '';
 
-  const suyos = bingosDe(idVendedor);
-  const cobros = suyos.reduce((s, b) => s + getCuotasPagadas(b).length, 0);
   const aviso = document.getElementById('edVendAviso');
   if (suyos.length > 0) {
-    aviso.innerHTML = 'Tiene <strong>' + suyos.length + ' bingo(s)</strong> y <strong>' + cobros +
-      ' cuota(s) cobrada(s)</strong>. El vinculo es por ID, asi que cambiar el nombre no pierde nada: ' +
-      'se reescribe el nombre en todos lados.';
+    aviso.textContent = 'Sus bingos y cobros no se tocan.';
     aviso.style.display = 'block';
   } else {
     aviso.style.display = 'none';
@@ -920,7 +927,7 @@ async function submitEditarVendedor() {
     showToast('Vendedor actualizado');
   } catch (e) {
     console.error('Error al editar vendedor:', e);
-    showToast('Error al guardar. Reintenta.');
+    showToast('No se pudo guardar. Proba de nuevo.');
   } finally {
     btn.textContent = textoOriginal;
     btn.disabled = false;
@@ -999,7 +1006,7 @@ async function submitNuevoBingo() {
     showToast('Bingo registrado');
   } catch (e) {
     console.error('Error al guardar bingo:', e);
-    showToast('Error al guardar. Reintenta.');
+    showToast('No se pudo guardar. Proba de nuevo.');
   } finally {
     btn.textContent = textoOriginal;
     btn.disabled = false;
@@ -1023,8 +1030,8 @@ function openEditarBingo(idx) {
   const cobros = getCuotasPagadas(bingo).length;
   const aviso = document.getElementById('editAviso');
   if (cobros > 0) {
-    aviso.textContent = 'Este bingo tiene ' + cobros + ' cuota(s) cobrada(s). ' +
-      'Al cambiar el numero o el nombre tambien se actualizan esos cobros en la planilla.';
+    aviso.textContent = 'Tiene ' + plural(cobros, 'cuota cobrada', 'cuotas cobradas') +
+      (cobros === 1 ? '. Se mantiene.' : '. Se mantienen.');
     aviso.style.display = 'block';
   } else {
     aviso.style.display = 'none';
@@ -1092,7 +1099,7 @@ async function submitEditarBingo() {
     showToast('Bingo actualizado');
   } catch (e) {
     console.error('Error al editar bingo:', e);
-    showToast('Error al guardar. Reintenta.');
+    showToast('No se pudo guardar. Proba de nuevo.');
   } finally {
     btn.textContent = textoOriginal;
     btn.disabled = false;
@@ -1207,7 +1214,7 @@ function openCobroTotal(idx) {
   cobroSelectedCuotas = [...pendientes];
 
   document.getElementById('cobroTitle').textContent = `Pago completo - ${bingo.comprador}`;
-  document.getElementById('cobroSubtitle').textContent = `Bingo #${bingo.nroBingo} - ${pendientes.length} cuota(s)`;
+  document.getElementById('cobroSubtitle').textContent = `Bingo #${bingo.nroBingo} - ${plural(pendientes.length, 'cuota')}`;
   document.getElementById('cobroCuotasSelect').innerHTML = '';
   document.getElementById('cobro_monto').value = pendientes.length * CUOTA_VALOR;
   document.getElementById('cobro_metodo').value = 'Efectivo';
@@ -1273,7 +1280,7 @@ function submitCobro() {
   document.getElementById('modalCobro').style.display = 'none';
   cobroBingoIdx = null;
   cobroSelectedCuotas = [];
-  showToast('Cobro registrado: ' + cantCuotas + ' cuota(s) — ' + fmt(monto));
+  showToast('Cobro registrado: ' + plural(cantCuotas, 'cuota') + ' — ' + fmt(monto));
   renderAll();
 
   // Enviar a Sheets en segundo plano sin bloquear la UI
@@ -1820,7 +1827,7 @@ function exportarResumenImagen() {
   // Pie
   const py = ty + TH_H + filtrados.length * ROW_H;
   x.fillStyle = '#aab0b8'; x.font = F(400, 11);
-  x.fillText('Generado desde la app de bingo - ' + APP_VERSION, PAD, py + 26);
+  x.fillText('Bingo del Club', PAD, py + 26);
 
   cv.toBlob(blob => {
     const suf = slugFiltros();
